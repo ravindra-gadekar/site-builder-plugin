@@ -452,67 +452,22 @@ The architect-agent receives this as a constraint. Its "Tech Stack Recommendatio
 
 ### Step 3: Branch Setup
 
-**Demo/Stage mode with remote (`HAS_REMOTE = true`):**
+There is no per-mode branch to create or check out. `local-dev` (verified
+in Init, Phase 1 of this plugin's own git workflow) is the only branch the
+orchestrator ever works on or checks out. Set the PR-target base branch
+for the chosen mode, without touching the working tree:
 
-1. Start from the default branch:
-   ```bash
-   git checkout DEFAULT_BRANCH
-   git pull REMOTE_NAME DEFAULT_BRANCH
-   ```
-2. Create the working branch:
-   - Demo: `git checkout -b demo`
-   - Stage: `git checkout -b stage`
-3. If `DEPLOY_BRANCH` is different from `DEFAULT_BRANCH`, pull its code:
-   ```bash
-   git pull REMOTE_NAME DEPLOY_BRANCH
-   ```
-4. **Immediately push** — working branch is tracked at remote before any work begins:
-   ```bash
-   git push -u REMOTE_NAME demo   # or stage
-   ```
-5. This working branch is now the **base branch** for all PRs in this mode.
+| Mode | Base branch (PR target) | When it's created |
+|------|--------------------------|--------------------|
+| Demo | `demo` | Lazily, before the *first* phase-boundary PR (see Git Operations Protocol below) — not here, not during Init |
+| Prod | `DEPLOY_BRANCH` (or `DEFAULT_BRANCH` if none) | Already exists — it's the repo's real deploy branch |
 
-**Demo/Stage mode without remote (`HAS_REMOTE = false`):**
+Store the base branch in `status.md` under Build Configuration:
+`Base branch (PR target): [demo|DEPLOY_BRANCH]`.
 
-1. Create the working branch from current branch:
-   - Demo: `git checkout -b demo`
-   - Stage: `git checkout -b stage`
-2. No push — working branch is local only
-3. Work begins immediately
-
-**Prod mode with remote (`HAS_REMOTE = true`):**
-
-1. Start from the deploy branch:
-   ```bash
-   git checkout DEPLOY_BRANCH
-   git pull REMOTE_NAME DEPLOY_BRANCH
-   ```
-2. If `DEPLOY_BRANCH` is different from `DEFAULT_BRANCH`, also pull default to avoid drift:
-   ```bash
-   git pull REMOTE_NAME DEFAULT_BRANCH
-   ```
-3. Create the working branch:
-   ```bash
-   git checkout -b prod
-   ```
-4. **Immediately push** — working branch is tracked at remote before any work begins:
-   ```bash
-   git push -u REMOTE_NAME prod
-   ```
-5. `DEPLOY_BRANCH` is now the **base branch** (PR target) for all PRs in prod mode.
-   The `prod` branch is the working branch where commits accumulate.
-
-**IMPORTANT:** In prod mode, the working branch is `prod`, NOT `DEPLOY_BRANCH`.
-Commits go to `prod`. PRs target `DEPLOY_BRANCH`. Never commit or push directly on `DEPLOY_BRANCH`.
-
-**Prod mode without remote (`HAS_REMOTE = false`):**
-
-1. Create the working branch from current branch:
-   ```bash
-   git checkout -b prod
-   ```
-2. No push — working branch is local only
-3. Work begins immediately
+If `HAS_REMOTE = false` (no remote — see Step 1), there is no PR target.
+All work stays on `local-dev`, committed locally, no push. Store
+`Base branch (PR target): none (no remote)`.
 
 ### Git Operations Protocol
 
