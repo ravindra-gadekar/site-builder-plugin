@@ -160,7 +160,7 @@ If not initialized, warn: "This project needs a git repo. Run `git init` first."
 
 **No restart needed** — this is a local skill (Python scripts + CSV databases), not an MCP server.
 
-### 6. RANK ME TOP MCP
+### 6. Analytics MCP
 
 Check if available. Note availability for analytics agent. (Existing behavior — no change.)
 

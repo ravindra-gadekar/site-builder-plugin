@@ -39,7 +39,7 @@ None beyond the plugin's own Markdown files and `templates/` scaffolding assets.
 |---|---|---|
 | context7 | MCP | Developer agent fetches current framework docs when scaffolding client code |
 | Image generation MCP | MCP (recommended, not required) | Content agent generates images; otherwise produces content briefs |
-| RANK ME TOP MCP | MCP (optional) | Centralized analytics connector management |
+| Analytics MCP | MCP (optional) | Centralized analytics connector management |
 | GitHub | MCP (`github` server) | PR/issue/repo operations for this plugin's own repo |
 | code-review-graph | MCP | Tree-sitter-backed code knowledge graph for token-efficient reviews of this repo |
 

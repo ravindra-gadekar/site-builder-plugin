@@ -2,14 +2,14 @@
 
 A Claude Code skills plugin that installs a team of 14 specialized AI agents and a master orchestrator into any client website project. Handles the complete website design lifecycle — from business analysis through deployment.
 
-Built by [CATION SYSTEM](https://rankme.top) for the RANK ME TOP platform.
+Developed by Ravindra Gadekar.
 
 ## Quick Start
 
 ### Install
 
 ```bash
-npx skills add https://github.com/RANKME-TOP/site-builder-plugin --skill site-builder
+npx skills add https://github.com/ravindra-gadekar/site-builder-plugin --skill site-builder
 ```
 
 ### Update
@@ -33,7 +33,7 @@ The orchestrator detects your project state and guides you through the pipeline.
 | Git initialized | **Required** | Version control for generated code |
 | context7 MCP | **Required** | Developer agent fetches current framework docs |
 | Image generation MCP | Recommended | Content agent generates images (otherwise produces briefs) |
-| RANK ME TOP MCP | Optional | Centralized analytics connector management |
+| Analytics MCP | Optional | Centralized analytics connector management |
 
 ## Build Modes
 
@@ -238,4 +238,4 @@ After installation via `npx skills add`, agents are available as agent types and
 
 ## License
 
-MIT — CATION SYSTEM 2026
+MIT — Ravindra Gadekar 2026
