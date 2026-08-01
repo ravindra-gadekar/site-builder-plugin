@@ -248,6 +248,44 @@ These rules apply to ALL MCP configuration above:
 - **Backup** — if modifying an existing `.mcp.json`, read and preserve all existing entries
 - **Never store secrets in git** — warn about `.gitignore` when API keys are present
 
+### Completing Init
+
+1. Record in `.site-builder/status.md` under Build Configuration: `init: complete`.
+2. If Init was invoked via `--init`: report a short summary (git state, gitignore categories applied, MCPs configured/skipped) and EXIT. Do not start the pipeline in the same invocation.
+3. If Init was invoked via the pipeline's auto-detect guard (see below): proceed directly into Build Mode & Branch Setup — no separate exit.
+
+### `--init` Re-run Guard
+
+Before running any Init steps, check `.site-builder/status.md`:
+
+```
+status.md exists AND Build Configuration has `init: complete`?
++-- YES --> Ask: "Init already complete. Re-run to reconfigure?
+|             (a) Yes  (b) No, exit"
+|     +-- (a) Yes --> run full Init flow again (Sections 1-7 above), overwrite init: complete
+|     +-- (b) No  --> EXIT immediately, no changes made
++-- NO (no status.md, or init missing/pending) --> run Init flow normally
+```
+
+This guard applies only when `--init` is passed explicitly. It does not apply to the pipeline's own auto-init guard below, which never re-runs a completed Init.
+
+### Pipeline Auto-Init Guard
+
+When `/site-builder` is invoked with no `--init` flag (interactive, `--auto`, or `--auto --parallel`):
+
+```
+.site-builder/status.md exists AND Build Configuration has `init: complete`?
++-- YES --> Skip Init entirely. Proceed to Build Mode & Branch Setup
+|           (or Mode Detection, for a return run — see below).
++-- NO  --> Run the full Init flow (Sections 1-7 above) inline, before
+            Build Mode & Branch Setup. Do not EXIT after — flow directly
+            into the pipeline once Init completes.
+```
+
+No later phase re-checks git state, `.gitignore`, or MCP configuration —
+Init is the single source of truth, checked exactly once per project via
+this guard.
+
 ## Build Mode & Branch Setup
 
 ### Step 1: Detect Remote & Branch Structure
