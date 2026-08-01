@@ -53,15 +53,48 @@ runs its 6 audit agents in parallel by default regardless of this flag;
 **Unknown flags are forward-compatible.** Log a one-line notice and
 continue — never abort on an unrecognized flag.
 
-## Prerequisites Check
+## Init
 
-Before starting the pipeline, verify and auto-configure:
+Runs when `--init` is passed explicitly, or auto-detected on first pipeline run (Phase 1 Task 3 covers the auto-detect and re-run cases). Verify and auto-configure, in order:
 
-### 1. Git Initialized
+### 1. Git Check
 
-If not initialized, warn: "This project needs a git repo. Run `git init` first." Offer to run `git init` for the user.
+**1a. Git initialized?** If not, warn: "This project needs a git repo. Run `git init` first." Offer to run `git init` for the user. If the user declines and git is unavailable, abort Init with: "Git is required. Install git and re-run `--init`."
 
-### 2. context7 MCP (Required)
+**1b. Remote origin set?** Run `git remote`. If no remote exists, ask: "No git remote found. Continue with local-only dev, or add a remote now?" On "continue local-only": proceed without a remote — this is a supported, permanent state, not just a temporary skip. If the user later adds a remote, the Phase Boundary Git Protocol (Phase 2 of this plugin's own git workflow) detects it automatically. If the remote is unreachable when the user does provide one, allow skip: "Can't reach remote. Continue with local-only dev?"
+
+**1c. `local-dev` branch exists and is checked out?** Adopting the `/git` skill's branch convention (patterns only — this orchestrator does not invoke `/git` directly, since PR target branches vary by mode):
+- If `local-dev` does not exist: `git checkout -b local-dev` from the current branch.
+- If `local-dev` exists but isn't checked out: `git checkout local-dev`.
+- If already on `local-dev`: continue.
+
+All later pipeline work happens on `local-dev` — see the Git Operations Protocol below for the full branch guard and git protocol.
+
+### 2. Gitignore Setup
+
+Delegate to the `/gitignore` skill rather than generating `.gitignore` inline:
+
+```
+Invoke /gitignore rebuild
+```
+
+This generates `.gitignore` from the shared pattern catalog and installs the
+POSIX `sh` pre-commit hook (confirmed POSIX-compliant — the hook template in
+the gitignore skill's `reference/gitignore-flow.md` Section 3 explicitly
+avoids bash-only syntax so it runs under `dash`/`ash`, not just `bash`; no
+follow-up issue is needed).
+
+**Framework is not yet known at init time** (framework selection happens
+after Phase 1 DISCOVER approval, in Step 2b). This first `/gitignore
+rebuild` call produces universal/secrets/build/cache/ide/OS categories only.
+Phase 3 PREPARE re-runs `/gitignore rebuild` after framework selection to
+add framework-specific patterns (`.astro/`, `.next/`, `.nuxt/`, etc.).
+
+If `/gitignore rebuild` fails: warn and continue — "Automatic .gitignore
+setup failed. You can run `/gitignore rebuild` manually, or set up
+`.gitignore` by hand before Phase 3 PREPARE."
+
+### 3. context7 MCP (Required)
 
 **Detection:** Check if `context7` is configured as an MCP server:
 - Look for `.mcp.json` in the project root
@@ -101,7 +134,7 @@ If not initialized, warn: "This project needs a git repo. Run `git init` first."
 
 5. If user declines: Warn that the developer agent will not have access to current framework docs, which may result in outdated API usage. Proceed anyway — do not block the pipeline.
 
-### 3. Image Generation MCP (Optional)
+### 4. Image Generation MCP (Optional)
 
 **Detection:** Check if any image generation MCP is configured in `.mcp.json`:
 - Look for entries named: `nanobanana-mcp`, `imagen`, `gemini-imagen`
@@ -134,7 +167,7 @@ If not initialized, warn: "This project needs a git repo. Run `git init` first."
 
 **If user declines:** Note that the content agent will produce image briefs instead of generating images. No pipeline impact — this is the existing fallback.
 
-### 4. Agentation MCP (Optional)
+### 5. Agentation MCP (Optional)
 
 **Detection:** Check if `agentation` is configured as an MCP server in `.mcp.json`:
 - Look for an entry named `agentation`
@@ -159,7 +192,7 @@ If not initialized, warn: "This project needs a git repo. Run `git init` first."
    - Store `agentation_mcp: true` in `status.md` under Build Configuration
 3. If user declines: The `<Agentation />` component is still installed (it works without MCP via copy-paste). Store `agentation_mcp: false`.
 
-### 5. UI UX Pro Max (Optional)
+### 6. UI UX Pro Max (Optional)
 
 **Detection:** Check if UI UX Pro Max is installed at project level:
 - Look for `.claude/skills/ui-ux-pro-max/scripts/search.py`
@@ -203,7 +236,7 @@ If not initialized, warn: "This project needs a git repo. Run `git init` first."
 
 **No restart needed** — this is a local skill (Python scripts + CSV databases), not an MCP server.
 
-### 6. Analytics MCP
+### 7. Analytics MCP
 
 Check if available. Note availability for analytics agent. (Existing behavior — no change.)
 
