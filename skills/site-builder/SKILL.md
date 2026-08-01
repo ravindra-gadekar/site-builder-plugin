@@ -832,10 +832,26 @@ Update `status.md`: Phase 8 INTEGRATE → completed
 
 ### Phase 9: DEPLOY
 
+0. **Ask hosting preference** (before spawning `deploy-agent`, in both demo
+   and prod modes): "Where do you want to deploy?" via `AskUserQuestion`
+   with options:
+   - **Vercel** — recommended for most frameworks, best DX, free tier
+   - **Netlify** — strong alternative, especially for static output
+   - **Custom hosting** — VPS, shared hosting, IIS, or other self-managed target
+   - **Other** — user specifies
+
+   If Step 2c (Hosting Compatibility Check) already recorded a hosting
+   decision in `status.md` (`change-hosting` or `proceed-anyway`), present
+   that as the pre-filled recommendation rather than asking from scratch.
+
+   Store the choice in `status.md` under Build Configuration:
+   `Hosting platform: [vercel|netlify|custom|other — detail]`.
+
 1. Spawn `deploy-agent` with prompt:
-   - Inject tech stack, hosting preferences, hosting compatibility decision from `status.md`
+   - Inject the hosting platform chosen in Step 0 above (as an explicit input — the agent no longer asks the user itself)
+   - Inject tech stack, hosting compatibility decision from `status.md`
    - Inject environment inventory from `project-brief.md` (parsed server configs, CI/CD workflows, .env variables, old sitemap URLs)
-   - Agent performs: config translation, CI/CD pipeline update, .env migration, sitemap verification, staging deployment
+   - Agent performs: existing-CI/CD assessment (asks user to keep or reconfigure any detected pipeline — see `agents/deploy-agent.md` "Assess & Update Existing CI/CD"), config translation, CI/CD pipeline update, .env migration, sitemap verification, staging deployment
 
 2. **CONFIG TRANSLATION REVIEW GATE** (within deploy-agent execution):
    The deploy-agent presents a config translation summary to the user before applying changes:
@@ -857,19 +873,34 @@ Update `status.md`: Phase 8 INTEGRATE → completed
 
 Update `status.md`: Phase 9 DEPLOY → completed
 
+### Phase 10: ANALYTICS
+
+1. Spawn `analytics-agent` with prompt:
+   - Inject the live deployment URL from Phase 9 DEPLOY's report
+   - Inject the analytics scaffolding already in the codebase from Phase 6 DEVELOP (GA4 snippet, cookie consent banner, conversion event stubs — scaffolded but without real credentials)
+   - Agent's task: ask the user for real credentials (tracking IDs, API keys) for each scaffolded platform, inject them into the environment configuration, and verify tracking fires on the live deployed URL — not a local build
+2. Wait for agent completion → `.site-builder/integration-reports/analytics.md` updated with verification results
+3. **APPROVAL GATE:** Present verification results to user
+   - Show: which platforms verified successfully (tracking event observed on live URL), which are still pending manual client action (e.g. GSC domain verification)
+   - Ask: "Analytics verification complete. [N] platforms confirmed live. Approve, or provide corrected credentials to retry?"
+   - On approval → pipeline complete
+   - On retry → re-run analytics-agent with corrected credentials
+
+Update `status.md`: Phase 10 ANALYTICS → completed
+
 ### Pipeline Complete
 
 Report to user:
 - "Website build complete! Here's the summary:"
 - Pages built: [list]
 - Audit results: all passed (or remaining issues)
-- Analytics: [status]
+- Analytics: [status — verified live or pending client action]
 - Social: [status]
-- Deployment: [staging URL]
+- Deployment: [live/staging URL]
 - Manual tasks: [list from integration reports]
-- **Current branch:** `[demo|stage]` — all changes are here, production branch is untouched (demo/stage mode)
-- **Current branch:** `[DEPLOY_BRANCH]` — changes are live (prod mode)
-- If demo/stage mode: "When ready to push to production, say 'make it prod' or 'push to prod.'"
+- **Working branch:** `local-dev` — all pipeline commits live here (unchanged in both modes)
+- **Demo mode:** production is untouched; the `demo` branch holds the squash-merged PRs. When ready, say "make it prod" to promote.
+- **Prod mode:** changes are already live on `DEPLOY_BRANCH` via phase-boundary PRs — no separate promotion step.
 
 ## Promote to Production
 
