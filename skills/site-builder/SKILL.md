@@ -367,13 +367,21 @@ Store as `REMOTE_NAME`, `HAS_REMOTE`, `DEFAULT_BRANCH`, and `DEPLOY_BRANCH` for 
 
 ### Step 2: Ask Build Mode
 
-Present three options to the user:
+Present two options to the user:
 
-**Demo mode** — Build a preview site for client approval. Partial or full pages. All changes stay on a `demo` branch. Production is never touched until the client approves. Works for both existing and new websites.
+**Demo mode** — Build a preview site for client approval. Partial or full
+pages. All work happens on `local-dev`; nothing is pushed to a shared
+branch until the first phase boundary, when a `demo` branch is created
+lazily (see Step 3 and the Git Operations Protocol below) and a PR targets
+it. Production is never touched until the client approves and you say
+"make it prod." Works for both existing and new websites.
 
-**Stage mode** — Full development build with all pages and configuration. All changes stay on a `stage` branch. Production is never touched until you explicitly say "make it prod." Works for both existing and new websites.
+**Prod mode** — Build on `local-dev`, with phase-boundary PRs targeting
+`DEPLOY_BRANCH` (or `DEFAULT_BRANCH` if no separate deploy branch) through
+the standard PR workflow. All pages and configuration. Use when you're
+ready to go live immediately.
 
-**Prod mode** — Build on a working branch that merges directly into production via PRs. All pages and configuration. Changes go to `DEPLOY_BRANCH` (or `DEFAULT_BRANCH` if no separate deploy branch) through the standard PR workflow. Use when you're ready to go live immediately.
+Store the choice in `status.md` under Build Configuration: `Mode: [demo|prod]`.
 
 ### Step 2b: Framework Selection
 
