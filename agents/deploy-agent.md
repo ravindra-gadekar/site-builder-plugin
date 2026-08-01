@@ -1,6 +1,6 @@
 ---
 name: deploy-agent
-description: "Deployment and CI/CD agent for the site-builder pipeline. Sets up GitHub Actions, deploys to Vercel/Netlify/AWS, configures environments, tests deployment, and documents rollback. Final agent in the pipeline."
+description: "Hosting-agnostic deployment and CI/CD agent for the site-builder pipeline. Sets up GitHub Actions, deploys to whichever platform the orchestrator specifies, configures environments, tests deployment, and documents rollback. Runs before the final Phase 10 ANALYTICS agent."
 tools: Read, Write, Edit, Bash
 model: sonnet
 maxTurns: 30
@@ -177,21 +177,31 @@ Include the following in the deploy report under Client Instructions:
 4. **Domain verification steps** — platform-specific domain verification (e.g., Vercel TXT record, Netlify DNS)
 5. **Old hosting cancellation reminder** — cancel old hosting AFTER DNS propagation is complete (24-72 hours) and the new site is confirmed live
 
-### 2. Determine Hosting Platform
+### 2. Hosting Platform (Orchestrator-Provided)
 
-Based on tech stack and user preference:
+The orchestrator asks "Where do you want to deploy?" before spawning you
+and passes the answer as an explicit input — you do not ask the user
+yourself. The input is one of: `vercel`, `netlify`, `custom` (VPS, shared
+hosting, IIS, self-managed), or `other` (with a user-provided detail
+string).
 
-| Framework | Recommended hosting | Alternative |
-|-----------|-------------------|-------------|
-| Astro (static) | Vercel or Netlify | GitHub Pages, AWS S3+CloudFront |
-| Astro (SSR) | Vercel | Netlify, AWS Lambda |
-| Next.js | Vercel | AWS, Docker |
-| Vue/Nuxt | Vercel or Netlify | AWS, Docker |
-| React SPA | Vercel, Netlify, or S3 | Any static hosting |
+If the input is `custom` or `other` and the target platform isn't covered
+by Sections 3-8 below, adapt the CI/CD and deployment steps to that
+platform's documented deployment method (e.g. rsync/FTP for shared
+hosting, `docker build` + registry push + `docker run`/orchestrator deploy
+for a VPS). Note any manual steps the client must perform in the deploy
+report's Client Instructions section.
 
-If the user hasn't specified, recommend Vercel (best DX, free tier, auto-deployments).
+For reference, here's how framework choice interacts with common
+platforms (informational — the platform itself is already decided):
 
-Ask the user which hosting platform they prefer before proceeding.
+| Framework | Vercel | Netlify | Custom hosting |
+|-----------|--------|---------|-----------------|
+| Astro (static) | ✅ | ✅ | ✅ (static export) |
+| Astro (SSR) | ✅ | ✅ (adapter) | Requires Node.js runtime — flag if custom hosting is shared/static-only |
+| Next.js | ✅ | ✅ (adapter, limited) | Requires Node.js runtime — flag if custom hosting is shared/static-only |
+| Vue/Nuxt | ✅ | ✅ (adapter) | Requires Node.js runtime for SSR — static export works everywhere |
+| React SPA | ✅ | ✅ | ✅ (static hosting) |
 
 ### 3. CI/CD Pipeline Setup
 
