@@ -471,11 +471,19 @@ All work stays on `local-dev`, committed locally, no push. Store
 
 ### Git Operations Protocol
 
-**ALL git operations are centralized in the orchestrator. Agents produce files — they never commit, push, or create PRs.**
+**ALL git operations are centralized in the orchestrator. Agents produce
+files — they never commit, push, or create PRs.** This protocol adopts the
+`/git` skill's conventions (commit message format, `<type>/<name>` branch
+naming, universal stash safety) as patterns. It does not invoke `/git`
+directly for PR creation, because `/git publish` reads a single
+`targetBranch` per repo from `config.json`, while site-builder needs PRs to
+target `demo` or `DEPLOY_BRANCH` depending on mode — so phase-boundary PRs
+call `mcp__github__create_pull_request` directly instead.
 
 #### Commit Checkpoints
 
-The orchestrator commits after each meaningful sub-task:
+The orchestrator commits on `local-dev` after each meaningful sub-task,
+using Conventional Commits (adopting `/git` skill formatting):
 
 | Phase | Checkpoint | Commit message |
 |-------|-----------|----------------|
@@ -490,42 +498,48 @@ The orchestrator commits after each meaningful sub-task:
 | 6. DEVELOP | Performance optimization | `perf: optimize images, lazy loading, code splitting` |
 | 7. AUDIT | Each fix cycle | `fix: address audit findings (cycle [N])` |
 | 8. INTEGRATE | Social integration | `feat: add social media integration` |
-| 8. INTEGRATE | Analytics integration | `feat: add analytics tracking` |
 | 9. DEPLOY | CI/CD setup | `feat: add CI/CD pipeline and deployment config` |
+| 10. ANALYTICS | Credentials injected and verified | `feat: connect analytics credentials and verify tracking` |
 
 **Before each commit, the orchestrator:**
-1. Check `.gitignore` — add new patterns if framework tooling generated new output directories
+1. Check `.gitignore` — add new patterns if framework tooling generated new output directories (or re-run `/gitignore rebuild`)
 2. Run `git status` — verify no unwanted files (secrets, temp files, IDE configs)
 3. Stage only relevant files — never `git add .` blindly. Use specific paths or `git add -A` after `.gitignore` is verified correct.
 4. Commit with the appropriate message
 
-#### With-Remote Workflow (HAS_REMOTE = true)
+#### Orchestrator Branch Guard
 
-Commits happen per sub-task (locally). PRs happen at phase boundaries (remotely). This keeps granular local history while avoiding PR noise (~7-9 PRs per build instead of ~15-20).
+Adopting the `/git` skill's iron rule ("all exit paths pop the stash"), the
+orchestrator runs its own guard before any git operation in this protocol —
+it does not call `/git`'s guard directly, since site-builder's stash scope
+spans the whole pipeline session, not a single command invocation:
 
-**Per sub-task (at each commit checkpoint):**
-1. Stage relevant files (see pre-commit checks above)
-2. Commit locally on the working branch (`demo`/`stage`/`prod`)
-3. Continue working — no push yet
+1. Verify current branch is `local-dev`. If not, `git checkout local-dev` (Init, Phase 1 of this plugin's own git workflow, guarantees this branch exists).
+2. Before any operation that could touch uncommitted work (push, reset, branch creation), check `git status --porcelain`. If uncommitted changes exist that are *not* the orchestrator's own pending commit, stash them: `git stash push -u -m "pre-site-builder-op-stash"`.
+3. After the operation completes (success or failure), pop the stash if one was created: `git stash pop`. On pop conflict, inform the user and leave the stash for manual resolution — never silently drop it.
+4. **Never** `git checkout demo`, `git checkout prod`, or `git checkout DEPLOY_BRANCH`. All local work stays on `local-dev`; only pushes and PRs reference other branches.
+
+#### With-Remote Workflow (`HAS_REMOTE = true`)
+
+Commits happen per sub-task, locally, on `local-dev`. PRs happen at phase
+boundaries (remotely). This keeps granular local history while avoiding PR
+noise (~7-9 PRs per build instead of ~15-20).
+
+**Per sub-task (at each commit checkpoint):** stage relevant files, commit
+locally on `local-dev`, continue working — no push yet.
 
 **At each phase boundary (when a phase completes):**
-1. Push accumulated commits to a feature branch: `git push REMOTE_NAME HEAD:feature/<phase-name>`
-2. Create PR targeting the **base branch** via `mcp__github__create_pull_request`:
-   - Demo mode: PR targets `demo`
-   - Stage mode: PR targets `stage`
-   - Prod mode: PR targets `DEPLOY_BRANCH`
-3. **Squash merge** the PR — one clean commit per phase on the base branch, granular sub-task history preserved in the PR on GitHub
-4. Sync local working branch with the squash-merged base:
-   ```bash
-   git fetch REMOTE_NAME
-   git reset --hard REMOTE_NAME/[base-branch]
-   ```
-   - Demo mode: `git reset --hard REMOTE_NAME/demo`
-   - Stage mode: `git reset --hard REMOTE_NAME/stage`
-   - Prod mode: `git reset --hard REMOTE_NAME/DEPLOY_BRANCH`
-   
-   **Why `reset --hard` instead of `pull`:** After squash merge, the remote base branch has a single squash commit while local has the original granular commits. A `git pull` would create merge conflicts or duplicate commits. `reset --hard` cleanly syncs to the squash-merged state.
-5. Continue working on the working branch
+
+1. **Demo mode only, first phase boundary of the build:** check whether the
+   remote `demo` branch exists (`git ls-remote --heads REMOTE_NAME demo`).
+   - Exists → reuse it (warn if it already has commits from a previous run: "The `demo` branch already has commits. Continuing on top of them.")
+   - Does not exist → create it from `DEFAULT_BRANCH`: `git push REMOTE_NAME DEFAULT_BRANCH:refs/heads/demo`
+   This is the *only* place the `demo` branch is created — never during Init, never during Branch Setup.
+2. Push accumulated commits from `local-dev` to a feature branch, adopting `/git`'s `<type>/<name>` naming: `git push REMOTE_NAME local-dev:feature/<phase-name>`
+3. Create PR via `mcp__github__create_pull_request` targeting the mode's base branch (from Step 3: `demo` or `DEPLOY_BRANCH`).
+4. **Squash merge** the PR — one clean commit per phase on the base branch, granular sub-task history preserved in the PR on GitHub.
+5. **`local-dev` is NOT reset.** Unlike a single-target branch workflow, `local-dev` never tracks the base branch — it's a one-way flow. Granular commits stay on `local-dev`; the squash commit lives on the base branch. The next phase boundary pushes the next batch of `local-dev` commits to a *new* typed branch (no drift, no conflict).
+6. **Never push `local-dev` to remote.** Only typed feature branches (`feature/<phase-name>`) are pushed.
 
 **Phase boundary PR schedule:**
 
@@ -536,47 +550,33 @@ Commits happen per sub-task (locally). PRs happen at phase boundaries (remotely)
 | 5. CONTENT | `feature/content` | `feat: add content plan and page copy` |
 | 6. DEVELOP | `feature/develop-pages` | `feat: implement all pages with SEO and performance` |
 | 7. AUDIT | `fix/audit-findings` | `fix: address audit findings` |
-| 8. INTEGRATE | `feature/integrations` | `feat: add social and analytics integrations` |
+| 8. INTEGRATE | `feature/social-integration` | `feat: add social media integration` |
 | 9. DEPLOY | `feature/deployment` | `feat: add CI/CD pipeline and deployment config` |
+| 10. ANALYTICS | `feature/analytics-credentials` | `feat: connect analytics credentials and verify tracking` |
 
-**This applies to ALL modes — demo, stage, AND prod.** Each mode has a separate working branch (`demo`/`stage`/`prod`) and a base branch (PR target). Prod mode uses `DEPLOY_BRANCH` as the PR target. **No direct pushes to any base branch, ever. Never push the working branch directly to the base branch.**
+**At each phase boundary, re-check for remote:** run `git remote`. If a
+remote was added since the last check, log detection, run the empty-repo
+guard (push `main` first if the remote has zero branches), push
+`local-dev`'s accumulated history to a feature branch, and set
+`HAS_REMOTE = true` for all subsequent operations. Update `status.md` with
+the remote name and URL.
 
-**At each phase boundary, re-check for remote:** Run `git remote`. If remote was added since last check:
-1. Log: "Remote detected: REMOTE_NAME ([URL]). Checking remote state."
-2. **Empty repo guard:** Run `git ls-remote --heads REMOTE_NAME`. If no branches exist:
-   - Push `main` first: `git push REMOTE_NAME HEAD:main` (ensures `main` becomes default)
-   - Then push working branch: `git push -u REMOTE_NAME [working-branch]`
-3. If branches already exist, push working branch directly: `git push -u REMOTE_NAME [working-branch]`
-4. Set `HAS_REMOTE = true`
-5. Detect `DEFAULT_BRANCH` and `DEPLOY_BRANCH` now that remote is available
-6. Update `status.md` with remote name, URL, and branch names
-7. All subsequent commits follow the with-remote workflow
-8. Log to user: "Remote detected. Pushed [N] commits from working branch. Using PR workflow for all future changes."
+#### Without-Remote Workflow (`HAS_REMOTE = false`)
 
-#### Without-Remote Workflow (HAS_REMOTE = false)
+After each commit checkpoint: stage relevant files, commit to `local-dev`
+with the appropriate message, no push, no PR, continue working.
 
-After each commit checkpoint:
-1. Stage relevant files (same pre-commit checks)
-2. Commit to the working branch with the appropriate message
-3. No push, no PR
-4. Continue working
+#### Prod Mode: Post-Production Default Branch Sync
 
-### Prod Mode: Post-Production Default Branch Sync
-
-If `DEPLOY_BRANCH` is different from `DEFAULT_BRANCH` (e.g., working on `prod` but default is `main`):
-
-The default branch is the **golden branch** — only post-production tested, bug-free code goes there. Do NOT auto-sync or push untested code to it.
-
-At each phase boundary, remind the user:
-
-"Your deploy branch has changes not yet in the default branch. If post-production testing has passed for previous changes, want to sync the tested code to `DEFAULT_BRANCH`?"
-
-If user confirms:
-1. Create PR: `DEPLOY_BRANCH` → `DEFAULT_BRANCH`
-2. Merge the PR
-3. Default branch now has the tested, stable code
-
-If user skips: note it in `status.md` and ask again at the next phase boundary. Never force the sync.
+If `DEPLOY_BRANCH` differs from `DEFAULT_BRANCH`, the default branch stays
+the "golden" branch — only post-production tested, bug-free code goes
+there. At each phase boundary in prod mode, if `DEPLOY_BRANCH` is ahead of
+`DEFAULT_BRANCH`, ask: "Your deploy branch has changes not yet in the
+default branch. If post-production testing has passed for previous
+changes, want to sync the tested code to `DEFAULT_BRANCH`?" On
+confirmation: create PR `DEPLOY_BRANCH` → `DEFAULT_BRANCH`, merge it. On
+skip: note it in `status.md`, ask again at the next phase boundary. Never
+force the sync.
 
 ### Step 4: Demo Scope (demo mode only)
 
