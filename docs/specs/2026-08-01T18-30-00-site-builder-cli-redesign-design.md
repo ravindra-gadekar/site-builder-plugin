@@ -58,10 +58,13 @@ SKILL.md is restructured into these logical sections:
 
 | Operation | Delegated To |
 |-----------|-------------|
-| Branch guards, stash safety, commit, push, PR | `/git` skill conventions |
+| Commit formatting, branch naming conventions, stash safety | `/git` skill conventions (adopted as patterns, not invoked directly) |
+| Phase-boundary PRs | `mcp__github__create_pull_request` directly (orchestrator controls the target branch per mode) |
 | `.gitignore` generation, hook installation, violation scanning | `/gitignore` skill |
 | Framework docs lookup | context7 MCP |
 | GitHub PRs/issues | `mcp__github__*` MCP tools |
+
+**Why not `/git publish` for PRs:** The `/git` skill's `publish` command reads a single `targetBranch` from `config.json` per repo (e.g., `main`). Site-builder needs PRs to target different branches depending on mode (demo branch vs DEPLOY_BRANCH). Rather than extending `/git publish` with a `--base` override, the orchestrator calls `mcp__github__create_pull_request` directly for phase-boundary PRs while adopting `/git`'s conventions for commit messages, branch naming (`<type>/<name>`), and stash safety (universal stash-push before operations, pop on all exit paths).
 
 ### What Changes vs Current SKILL.md
 
@@ -89,6 +92,10 @@ Runs when `--init` is passed explicitly, or auto-detected on first pipeline run 
   +-- 2. Gitignore setup
   |    +-- Delegate to /gitignore rebuild
   |        Generates .gitignore from catalog + installs POSIX pre-commit hook
+  |        Note: framework is not yet known at init time (selected after Phase 2).
+  |        Init produces a .gitignore with universal/secrets/build/cache/ide/OS
+  |        categories only. Phase 3 PREPARE re-runs /gitignore rebuild after
+  |        framework selection to add framework-specific patterns (.astro/, .next/, etc.)
   |
   +-- 3. MCP configuration
   |    +-- context7 (required): check .mcp.json, configure if missing
@@ -115,16 +122,28 @@ Runs when `--init` is passed explicitly, or auto-detected on first pipeline run 
   +-- Mode selection (first run only)
   |    +-- Ask: demo or prod?
   |    +-- Demo: PR target = demo branch (created lazily at first phase boundary)
+  |    |    Lazy creation: before first PR, check if remote demo branch exists
+  |    |      Exists -> reuse (warn if it has commits from a previous run)
+  |    |      Does not exist -> create from DEFAULT_BRANCH:
+  |    |        git push REMOTE_NAME DEFAULT_BRANCH:refs/heads/demo
   |    +-- Prod: PR target = DEPLOY_BRANCH or DEFAULT_BRANCH
   |    +-- Store in status.md
   |
   +-- Pipeline: 10 phases (see Section 5)
   |    |
-  |    |  Git at phase boundaries (via /git skill):
-  |    |    Commit on local-dev
-  |    |    Push to typed branch: feature/<phase-name> or fix/<phase-name>
-  |    |    PR targeting mode's base branch
-  |    |    Never push local-dev to remote
+  |    |  Phase Boundary Git Protocol:
+  |    |    1. Commit on local-dev (conventional commit message)
+  |    |    2. Push to typed branch: git push REMOTE_NAME local-dev:feature/<phase-name>
+  |    |    3. Create PR via mcp__github__create_pull_request
+  |    |       - Demo mode: PR targets demo branch
+  |    |       - Prod mode: PR targets DEPLOY_BRANCH
+  |    |    4. Squash-merge the PR
+  |    |    5. Local-dev is NOT reset -- granular commits stay on local-dev,
+  |    |       squash commit lives on the target branch. No sync needed because
+  |    |       local-dev never tracks the target branch; it is a one-way flow.
+  |    |       Next phase boundary pushes the next batch of local-dev commits
+  |    |       to a new typed branch.
+  |    |    6. Never push local-dev to remote
   |    |
   |    +-- Phase 10 ANALYTICS -> pipeline complete
   |
@@ -139,13 +158,15 @@ Triggered when the user says "make it prod" / "push to prod" / "go live":
 
 ```
 1. Read status.md -> confirm demo mode, all phases complete
-2. Create PR: demo branch -> DEPLOY_BRANCH (via mcp__github__)
-3. Merge PR
-4. Stay on local-dev -- never checkout away
-5. Update status.md: mode -> prod, PR target -> DEPLOY_BRANCH
-6. Future commits target prod via /git conventions
-7. Re-run Phase 9 DEPLOY if hosting needs reconfiguration for prod
-8. Re-run Phase 10 ANALYTICS for production verification
+2. Pre-promotion check: verify all phase-boundary PRs targeting demo are merged.
+   If any are open -> warn user, offer to auto-merge or abort.
+3. Create PR: demo branch -> DEPLOY_BRANCH (via mcp__github__)
+4. Merge PR
+5. Stay on local-dev -- never checkout away
+6. Update status.md: mode -> prod, PR target -> DEPLOY_BRANCH
+7. Future commits target prod via /git conventions
+8. Re-run Phase 9 DEPLOY if hosting needs reconfiguration for prod
+9. Re-run Phase 10 ANALYTICS for production verification
 ```
 
 ---
@@ -175,10 +196,10 @@ Triggered when the user says "make it prod" / "push to prod" / "go live":
 
 ### Flag Validation
 
-| Invalid Input | Response |
-|---------------|----------|
-| Unknown flag (e.g., `--verbose`) | Ignore silently (forward compatibility, same as `/brainstorm --parallel` pattern) |
-| `--init` combined with pipeline flags | Init runs first, then EXIT. Pipeline flags are noted but not acted on. |
+| Invalid Input                        | Response                                                                                         |
+|--------------------------------------|--------------------------------------------------------------------------------------------------|
+| Unknown flag (e.g., `--verbose`)     | Log "Ignoring unknown flag: `--verbose`" and continue (forward compatibility with user feedback) |
+| `--init` combined with pipeline flags | Init runs first, then EXIT. Pipeline flags are noted but not acted on.                          |
 
 ---
 
@@ -206,7 +227,7 @@ This is a Markdown-only plugin — no automated test suite exists. Testing is ma
 - [ ] `/site-builder --init` runs git check, gitignore setup (via `/gitignore rebuild`), and MCP configuration, then exits without starting the pipeline
 - [ ] `/site-builder` with no flags runs the full pipeline interactively, auto-running init if not yet complete
 - [ ] `--auto` flag skips optional prompts (MCP setup, demo scope, framework recommendation) but never skips approval gates (Phases 1, 2, 4, 9)
-- [ ] `--parallel` flag dispatches Phase 7 audit agents simultaneously instead of sequentially
+- [ ] `--parallel` flag enables simultaneous agent dispatch for read-only phases (Phase 7 AUDIT already runs parallel by default; `--parallel` is a forward-looking flag that signals the orchestrator to parallelize any future parallelizable phases)
 - [ ] Flags are composable: `/site-builder --init --auto`, `/site-builder --auto --parallel` work correctly
 - [ ] Unknown flags are silently ignored (forward compatibility)
 - [ ] Only two build modes exist: demo and prod (stage is completely removed)
@@ -215,18 +236,24 @@ This is a Markdown-only plugin — no automated test suite exists. Testing is ma
 - [ ] Prod mode targets `DEPLOY_BRANCH` (or `DEFAULT_BRANCH` if no separate deploy branch) for PRs
 - [ ] Demo -> prod promotion is one-way: creates PR from demo branch to DEPLOY_BRANCH, updates status.md
 - [ ] All work happens on `local-dev` branch — the orchestrator never checks out demo, prod, or any other branch
-- [ ] Git operations (commit, push, PR) follow `/git` skill conventions: commit on `local-dev`, push to typed branches (`feature/<phase>`, `fix/<phase>`), never push `local-dev` to remote
-- [ ] `.gitignore` setup is delegated to `/gitignore rebuild` during init — no inline gitignore generation in PREPARE or any other phase
-- [ ] Pre-commit hook installed by `/gitignore rebuild` uses POSIX-only sh syntax (no bash arrays, `[[ ]]`, or `<<<`)
+- [ ] Git operations adopt `/git` skill conventions for commit messages, branch naming (`<type>/<name>`), and stash safety; phase-boundary PRs use `mcp__github__create_pull_request` directly (not `/git publish`) because the orchestrator controls the PR target branch per mode
+- [ ] Orchestrator implements its own branch guard: verify `local-dev` is checked out and stash uncommitted work before git operations (adopting `/git`'s iron rule: all exit paths pop the stash)
+- [ ] `.gitignore` setup is delegated to `/gitignore rebuild` during init (universal patterns), and re-run during Phase 3 PREPARE after framework selection (adds framework-specific patterns)
+- [ ] Verify that `/gitignore rebuild` hook output uses POSIX-only sh syntax; if not, file a follow-up issue against the gitignore skill
 - [ ] Phase 8 INTEGRATE runs `social-integration-agent` only (analytics removed from this phase)
 - [ ] Phase 9 DEPLOY asks "Where do you want to deploy?" with options (Vercel, Netlify, custom hosting, other) in both demo and prod modes — does not assume any hosting platform
 - [ ] Phase 9 DEPLOY: if existing CI/CD is detected, asks user whether to keep or reconfigure
-- [ ] Phase 10 ANALYTICS (new) runs after deploy: asks user for tracking IDs/API keys, replaces placeholders from Phase 6, commits via `/git`, verifies tracking on deployed URL
+- [ ] Phase 10 ANALYTICS (new) runs after deploy: reuses existing `analytics-agent` with narrowed scope — Phase 6 DEVELOP lays down analytics scaffolding code (GA4 snippet, cookie consent banner, conversion event stubs), Phase 10 asks user for real credentials (tracking IDs, API keys), injects them, and verifies tracking fires on the deployed URL
 - [ ] Pipeline is now 10 phases: DISCOVER, ARCHITECT, PREPARE, DESIGN, CONTENT, DEVELOP, AUDIT, INTEGRATE, DEPLOY, ANALYTICS
-- [ ] `status.md` tracks `init: complete/pending` and no longer contains stage mode references
+- [ ] `status.md` tracks `init: complete/pending`, uses `pipeline_version: 3` (was 2 for 9-phase pipeline), and no longer contains stage mode references
+- [ ] Resume rules for v2 -> v3: if status.md has `pipeline_version: 2` and all 9 phases complete, on resume under v3, offer to run Phase 10 ANALYTICS as an optional upgrade; if mid-run, remap phases by name and treat ANALYTICS as pending
 - [ ] Init runs once and is recorded in `status.md` — no phase re-checks prerequisites
+- [ ] `--init` when init is already complete: ask "Init already complete. Re-run to reconfigure? (a) Yes (b) No, exit"
 - [ ] Session resume reads `status.md` and resumes from the last incomplete phase without re-running completed work
-- [ ] All references to "stage" mode are removed from SKILL.md, phases.md, deploy-agent.md, README.md, CLAUDE.md, CONTEXT.md, and ARCHITECTURE.md
+- [ ] Demo -> prod promotion verifies all phase-boundary PRs targeting demo are merged before creating the promotion PR
+- [ ] All references to "stage" mode are removed from SKILL.md, phases.md, developer-agent.md, analytics-agent.md, README.md, CLAUDE.md, CONTEXT.md, and ARCHITECTURE.md
+- [ ] `analytics-agent.md` frontmatter updated: description changed from "Phase 7 parallel with social-integration-agent" to reflect Phase 10 solo post-deploy role
+- [ ] Deploy phase hosting question is asked by the orchestrator before spawning deploy-agent; hosting choice is passed as input to the agent. deploy-agent.md frontmatter updated to remove "Vercel/Netlify/AWS" and say "hosting-agnostic deployment"
 
 ---
 
