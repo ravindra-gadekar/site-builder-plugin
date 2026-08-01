@@ -1,0 +1,46 @@
+{
+  "version": "1.1.0",
+  "plugin": "https://github.com/ravindra-gadekar/fullstack-dev-plugin.git",
+  "projectName": "Site Builder Agents",
+  "description": "A Claude Code skills plugin that installs a team of 14 specialized AI agents and a master orchestrator into any client website project, handling the complete website design lifecycle from business analysis through deployment.",
+  "projectType": "cli",
+  "repoStructure": "mono-repo",
+  "metaRepo": {
+    "remote": false,
+    "url": ""
+  },
+  "repos": [
+    {
+      "name": "site-builder-plugin",
+      "path": ".",
+      "type": "library",
+      "stack": [],
+      "targetBranch": "master"
+    }
+  ],
+  "hasFrontend": false,
+  "databases": [],
+  "aiIntegration": ["claude"],
+  "teamSize": "solo",
+  "gitPlatform": {
+    "provider": "github",
+    "method": "mcp",
+    "org": "RANKME-TOP"
+  },
+  "gitWorkflow": {
+    "localBranch": "local-dev",
+    "commitConvention": "conventional",
+    "branchNaming": "<type>/<ticket?>-<name>",
+    "deleteRemoteBranches": false
+  },
+  "gitIgnore": {
+    "activeCategories": ["universal", "secrets", "build", "cache", "ide", "macos", "windows", "linux", "mcp-tooling", "skills-cli"],
+    "hookInstalled": true,
+    "categoriesEverActivated": ["universal", "secrets", "build", "cache", "ide", "macos", "windows", "linux", "mcp-tooling", "skills-cli"]
+  },
+  "optionalTools": {
+    "agentation": false
+  },
+  "createdAt": "2026-08-01T09:45:31Z",
+  "updatedAt": "2026-08-01T09:45:31Z"
+}

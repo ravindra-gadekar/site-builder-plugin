@@ -1,0 +1,135 @@
+---
+interface Props {
+  src: string;
+  poster: string;
+  title: string;
+  aspectRatio?: string;
+  autoplay?: boolean;
+}
+
+const { src, poster, title, aspectRatio = '16/9', autoplay = false } = Astro.props;
+---
+
+<div
+  class="video-player"
+  style={`aspect-ratio: ${aspectRatio};`}
+  data-autoplay={autoplay ? 'true' : undefined}
+>
+  {autoplay ? (
+    <video
+      src={src}
+      poster={poster}
+      autoplay
+      muted
+      loop
+      playsinline
+      preload="auto"
+      aria-label={title}
+      class="video-player__video"
+    />
+    <picture class="video-player__reduced-motion-fallback">
+      <img src={poster} alt={title} loading="lazy" decoding="async" />
+    </picture>
+  ) : (
+    <button
+      class="video-player__trigger"
+      aria-label={`Play video: ${title}`}
+      type="button"
+    >
+      <video
+        src={src}
+        poster={poster}
+        playsinline
+        preload="none"
+        aria-label={title}
+        class="video-player__video"
+      />
+      <span class="video-player__play" aria-hidden="true">
+        <svg viewBox="0 0 68 48" width="68" height="48">
+          <path d="M66.52 7.74c-.78-2.93-2.49-5.41-5.42-6.19C55.79.13 34 0 34 0S12.21.13 6.9 1.55C3.97 2.33 2.27 4.81 1.48 7.74.06 13.05 0 24 0 24s.06 10.95 1.48 16.26c.78 2.93 2.49 5.41 5.42 6.19C12.21 47.87 34 48 34 48s21.79-.13 27.1-1.55c2.93-.78 4.64-3.26 5.42-6.19C67.94 34.95 68 24 68 24s-.06-10.95-1.48-16.26z" fill="var(--play-btn-bg, #f97316)"/>
+          <path d="M45 24L27 14v20" fill="#fff"/>
+        </svg>
+      </span>
+    </button>
+  )}
+</div>
+
+<style>
+  .video-player {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    border-radius: var(--video-border-radius, 0.5rem);
+    background: #000;
+  }
+  .video-player__video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .video-player__trigger {
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: none;
+    cursor: pointer;
+    position: relative;
+  }
+  .video-player__play {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: var(--play-btn-size, 4rem);
+    height: auto;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
+    transition: transform 150ms ease-out, opacity 300ms ease-out;
+  }
+  .video-player__trigger:hover .video-player__play {
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  .video-player--playing .video-player__play {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .video-player__reduced-motion-fallback {
+    display: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .video-player[data-autoplay] .video-player__video {
+      display: none;
+    }
+    .video-player[data-autoplay] .video-player__reduced-motion-fallback {
+      display: block;
+    }
+    .video-player__reduced-motion-fallback img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+</style>
+
+<script>
+  document.querySelectorAll('.video-player:not([data-autoplay])').forEach(player => {
+    const trigger = player.querySelector('.video-player__trigger');
+    const video = player.querySelector('video');
+
+    player.addEventListener('pointerover', () => {
+      if (video && video.preload === 'none') {
+        video.preload = 'metadata';
+      }
+    }, { once: true });
+
+    trigger?.addEventListener('click', () => {
+      if (video) {
+        video.preload = 'auto';
+        video.controls = true;
+        video.play();
+        player.classList.add('video-player--playing');
+      }
+    });
+  });
+</script>

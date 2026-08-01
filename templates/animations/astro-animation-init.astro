@@ -1,0 +1,10 @@
+---
+// Animation initializer for Astro projects.
+// Import this component once in your BaseLayout.
+// Also import animations.css in your global styles.
+---
+
+<script>
+  import { initAnimations } from './animation-controller.js';
+  document.addEventListener('astro:page-load', initAnimations);
+</script>

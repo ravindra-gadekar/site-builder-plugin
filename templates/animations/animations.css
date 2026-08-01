@@ -1,0 +1,201 @@
+/* Animation Utility Classes (~3KB)
+ * Industry-adaptive animation system. See reference/animation-system.md for tier details.
+ * All design-system-dependent values use CSS custom properties.
+ */
+
+/* === Base reveal state === */
+.reveal {
+  opacity: 0;
+  transition: opacity var(--reveal-duration, 0.6s) var(--reveal-easing, ease-out),
+              transform var(--reveal-duration, 0.6s) var(--reveal-easing, ease-out);
+  will-change: opacity, transform;
+}
+
+.reveal.revealed {
+  opacity: 1;
+  transform: none;
+}
+
+/* === Tier 1: Subtle === */
+.reveal-fade-up {
+  opacity: 0;
+  transform: translateY(var(--reveal-distance, 20px));
+  transition: opacity var(--reveal-duration, 0.6s) var(--reveal-easing, ease-out),
+              transform var(--reveal-duration, 0.6s) var(--reveal-easing, ease-out);
+  will-change: opacity, transform;
+}
+
+.reveal-fade-in {
+  opacity: 0;
+  transition: opacity var(--reveal-duration, 0.6s) var(--reveal-easing, ease-out);
+  will-change: opacity;
+}
+
+.reveal-scale {
+  opacity: 0;
+  transform: scale(var(--reveal-scale-from, 1.02));
+  transition: opacity var(--reveal-duration, 0.6s) var(--reveal-easing, ease-out),
+              transform var(--reveal-duration, 0.6s) var(--reveal-easing, ease-out);
+  will-change: opacity, transform;
+}
+
+.reveal-fade-up.revealed,
+.reveal-fade-in.revealed,
+.reveal-scale.revealed {
+  opacity: 1;
+  transform: none;
+}
+
+/* Hover utilities (Tier 1+) */
+.hover-lift {
+  transition: transform var(--hover-duration, 150ms) ease-out,
+              box-shadow var(--hover-duration, 150ms) ease-out;
+}
+.hover-lift:hover {
+  transform: translateY(var(--hover-lift-distance, -4px));
+  box-shadow: var(--hover-lift-shadow, 0 10px 15px rgba(0,0,0,0.1));
+}
+
+.hover-scale {
+  transition: transform var(--hover-duration, 150ms) ease-out;
+}
+.hover-scale:hover {
+  transform: scale(var(--hover-scale-factor, 1.05));
+}
+
+.hover-glow {
+  transition: box-shadow var(--hover-duration, 150ms) ease-out;
+}
+.hover-glow:hover {
+  box-shadow: 0 0 var(--hover-glow-spread, 20px) var(--hover-glow-color, rgba(59,130,246,0.3));
+}
+
+/* Counter animation target — JS reads data-count attribute */
+.counter-animate {
+  /* JS handles the number increment animation */
+}
+
+/* === Tier 2: Moderate === */
+.reveal-slide-left {
+  opacity: 0;
+  transform: translateX(var(--reveal-slide-distance, 40px));
+  transition: opacity var(--reveal-duration, 0.6s) var(--reveal-easing, ease-out),
+              transform var(--reveal-duration, 0.6s) var(--reveal-easing, ease-out);
+  will-change: opacity, transform;
+}
+
+.reveal-slide-right {
+  opacity: 0;
+  transform: translateX(calc(var(--reveal-slide-distance, 40px) * -1));
+  transition: opacity var(--reveal-duration, 0.6s) var(--reveal-easing, ease-out),
+              transform var(--reveal-duration, 0.6s) var(--reveal-easing, ease-out);
+  will-change: opacity, transform;
+}
+
+.reveal-slide-left.revealed,
+.reveal-slide-right.revealed {
+  opacity: 1;
+  transform: none;
+}
+
+/* Stagger children — JS calculates delay per child */
+.stagger-children > * {
+  opacity: 0;
+  transform: translateY(var(--reveal-distance, 20px));
+  transition: opacity var(--reveal-duration, 0.6s) var(--reveal-easing, ease-out),
+              transform var(--reveal-duration, 0.6s) var(--reveal-easing, ease-out);
+  will-change: opacity, transform;
+}
+
+.stagger-children.revealed > * {
+  opacity: 1;
+  transform: none;
+}
+
+/* === Tier 3: Creative === */
+.reveal-blur {
+  opacity: 0;
+  filter: blur(var(--reveal-blur-amount, 10px));
+  transition: opacity var(--reveal-duration, 0.6s) var(--reveal-easing, ease-out),
+              filter var(--reveal-duration, 0.6s) var(--reveal-easing, ease-out);
+  will-change: opacity, filter;
+}
+
+.reveal-blur.revealed {
+  opacity: 1;
+  filter: blur(0);
+}
+
+.text-reveal {
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path var(--text-reveal-duration, 0.8s) var(--reveal-easing, ease-out);
+}
+
+.text-reveal.revealed {
+  clip-path: inset(0 0 0 0);
+}
+
+.gradient-shift {
+  background-size: 200% 200%;
+  animation: gradient-shift-keyframes var(--gradient-duration, 8s) ease infinite;
+  animation-play-state: paused;
+}
+
+.gradient-shift.revealed {
+  animation-play-state: running;
+}
+
+@keyframes gradient-shift-keyframes {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.parallax-bg {
+  transform: translateY(var(--parallax-offset, 0));
+  transition: transform 0.1s linear;
+  will-change: transform;
+}
+
+/* === Reduced Motion — Non-negotiable === */
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal-fade-up,
+  .reveal-fade-in,
+  .reveal-scale,
+  .reveal-slide-left,
+  .reveal-slide-right,
+  .reveal-blur,
+  .text-reveal,
+  .stagger-children > * {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    clip-path: none !important;
+    transition: none !important;
+    will-change: auto !important;
+  }
+
+  .hover-lift,
+  .hover-scale,
+  .hover-glow {
+    transition: none !important;
+  }
+
+  .hover-lift:hover {
+    transform: none !important;
+  }
+
+  .hover-scale:hover {
+    transform: none !important;
+  }
+
+  .gradient-shift {
+    animation: none !important;
+  }
+
+  .parallax-bg {
+    transform: none !important;
+    transition: none !important;
+  }
+}
