@@ -37,19 +37,19 @@ The orchestrator detects your project state and guides you through the pipeline.
 
 ## Build Modes
 
-Choose a mode when starting the pipeline:
+Choose a mode when starting the pipeline (`/site-builder`, after Init):
 
-| Mode | Branch | Pages | Use case |
-|------|--------|-------|----------|
-| **Demo** | `demo` | Partial or full | Client previews, prospecting unknown clients |
-| **Stage** | `stage` | All pages | Full development and testing before production |
-| **Prod** | `DEPLOY_BRANCH` | All pages | Direct to production (no safety branch) |
+| Mode | PR target | Pages | Use case |
+|------|-----------|-------|----------|
+| **Demo** | `demo` (created lazily on the first phase-boundary PR) | Partial or full | Client previews, prospecting unknown clients |
+| **Prod** | `DEPLOY_BRANCH` (or default branch if none) | All pages | Direct to production |
 
 ### How it works
 
-- **Demo & Stage** — working branch is created from the default branch, production is never touched. When ready, say "make it prod" to promote.
-- **Prod** — code goes directly to the CI/CD deploy branch. Use when you're confident and ready to go live.
-- **All modes** use the same git workflow: commit locally → push to `feature/<name>` branch → PR to base → merge → sync. Never push directly to the base branch.
+- All pipeline work happens on a single branch, `local-dev` — the orchestrator never checks out `demo`, `prod`, or any other branch.
+- **Demo** — phase-boundary PRs target `demo`, created lazily the first time one is needed (not upfront). Production is never touched until you say "make it prod," which promotes via a PR from `demo` to `DEPLOY_BRANCH` after verifying every demo PR is already merged.
+- **Prod** — phase-boundary PRs target `DEPLOY_BRANCH` directly. Use when you're confident and ready to go live.
+- **Both modes** use the same flow: commit on `local-dev` → push to `feature/<name>` → PR to the mode's base branch → squash merge. `local-dev` itself is never reset and never pushed. Never push directly to the base branch.
 
 ### Branch detection
 
@@ -57,7 +57,7 @@ The orchestrator detects both the **default branch** (GitHub base) and the **CI/
 
 ## What It Does
 
-### 9-Phase Pipeline
+### 10-Phase Pipeline
 
 ```
 Phase 1: DISCOVER    → Business analysis, competitor research, codebase inventory, document extraction
@@ -65,15 +65,16 @@ Phase 2: ARCHITECT   → Tech stack confirmation, site map, URL structure, compo
 Phase 3: PREPARE     → Clean old files, scaffold new project, set up .gitignore
 Phase 4: DESIGN      → Visual identity, design tokens, wireframes, anti-AI-look validation
 Phase 5: CONTENT     → Page copy, meta tags, image planning (real assets first)
-Phase 6: DEVELOP     → Working website code (chunked: pages → SEO → performance)
+Phase 6: DEVELOP     → Working website code (chunked: pages → SEO → performance → analytics scaffolding)
 Phase 7: AUDIT       → 6 parallel quality checks with fix loop (max 3 cycles)
-Phase 8: INTEGRATE   → Social media + analytics setup (all optional/skippable)
-Phase 9: DEPLOY      → CI/CD pipeline + staging deployment
+Phase 8: INTEGRATE   → Social media setup (all optional/skippable)
+Phase 9: DEPLOY      → Hosting-agnostic CI/CD pipeline + staging deployment
+Phase 10: ANALYTICS  → Real credentials injected, tracking verified on the live URL
 ```
 
 ### Approval Gates
 
-4 user approval gates (Discover, Architect, Design, Deploy) and 1 quality gate (all 6 audits must pass).
+5 user approval gates (Discover, Architect, Design, Deploy, Analytics) and 1 quality gate (all 6 audits must pass).
 
 ### Document Parsing & Image Extraction
 
@@ -101,7 +102,7 @@ Re-run `/site-builder` on a completed project to make changes. The orchestrator 
 
 ### Tech Stack Migration
 
-When migrating to a new framework, the Phase 3 PREPARE phase handles cleanup and scaffolding. The working branch (demo/stage) keeps original code safe on the production branch. Reference old files via `git show` during migration. If it fails, delete the branch and start fresh.
+When migrating to a new framework, the Phase 3 PREPARE phase handles cleanup and scaffolding. Working on `local-dev` (with phase-boundary PRs, never a direct push) keeps original code safe on the production branch. Reference old files via `git show` during migration. If it fails, the orchestrator can discard the unpushed `local-dev` commits and start fresh — production is untouched either way.
 
 ## 14 Agents
 
@@ -147,35 +148,47 @@ Business and marketing sites: homepage, about, services, contact, blog, case stu
 
 ## Git Workflow
 
-All git operations are centralized in the orchestrator. Agents produce files — they never commit, push, or create PRs. Remote name is detected dynamically (not hardcoded to `origin`).
+All git operations are centralized in the orchestrator, adopting the
+Fullstack Dev `/git` skill's conventions (commit format, `<type>/<name>`
+branch naming, universal stash safety). Agents produce files — they never
+commit, push, or create PRs. Remote name is detected dynamically (not
+hardcoded to `origin`). Everything happens on a single branch, `local-dev`
+— the orchestrator never checks out `demo`, `prod`, or any other branch.
 
-**With remote:** Commits happen per sub-task locally on the working branch (`demo`/`stage`/`prod`). PRs happen at phase boundaries (~7-9 PRs per build, not per-commit). Squash merge keeps clean phase-level commits on the base branch.
+**With remote:** Commits happen per sub-task locally on `local-dev`. PRs
+happen at phase boundaries (~7-9 PRs per build, not per-commit). Squash
+merge keeps clean phase-level commits on the base branch. `local-dev`
+itself is never reset — the next phase boundary just pushes the next batch
+of commits to a new feature branch.
 
 ```
-1. Orchestrator commits locally on the working branch (demo/stage/prod)
-2. At phase boundary: push to feature branch (git push REMOTE_NAME HEAD:feature/<phase-name>)
-3. Create PR targeting the base branch (demo/stage/DEPLOY_BRANCH)
+1. Orchestrator commits locally on local-dev
+2. At phase boundary: push to feature branch (git push REMOTE_NAME local-dev:feature/<phase-name>)
+3. Create PR targeting the mode's base branch (demo/DEPLOY_BRANCH)
 4. Squash merge PR
-5. Sync local: git reset --hard REMOTE_NAME/<base-branch>
+5. local-dev is untouched -- next phase boundary pushes the next batch
 ```
 
 **Branch mapping:**
 
-- Demo mode: working branch = `demo`, PR target = `demo`
-- Stage mode: working branch = `stage`, PR target = `stage`
-- Prod mode: working branch = `prod`, PR target = `DEPLOY_BRANCH`
+- Demo mode: PR target = `demo` (created lazily on the first phase-boundary PR — never during Init or Branch Setup)
+- Prod mode: PR target = `DEPLOY_BRANCH`
 
 No direct pushes to any base branch, ever.
 
 **Without remote:** Commits happen locally with no push or PR. If a remote is added later, accumulated commits are pushed at the next phase boundary.
 
-### Promotion (demo/stage → production)
+### Promotion (demo → production)
 
-When user says "make it prod":
-- **With remote:** PR from working branch → `DEPLOY_BRANCH` (goes live)
-- **Without remote:** Local merge of working branch into `DEFAULT_BRANCH`
+When user says "make it prod": the orchestrator first verifies every
+phase-boundary PR targeting `demo` is already merged (offering to
+auto-merge any that are still open), then:
+- **With remote:** PR from `demo` → `DEPLOY_BRANCH` (goes live)
+- **Without remote:** nothing to promote remotely — mode simply flips to `prod` for future phase-boundary work
 - Post-production testing
 - After confirmed stable → sync `DEPLOY_BRANCH` → `DEFAULT_BRANCH` (golden branch updated)
+
+Prod mode has no promotion step — code is already live via phase-boundary PRs targeting `DEPLOY_BRANCH` directly.
 
 ### Prod mode sync
 
