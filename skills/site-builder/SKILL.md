@@ -593,7 +593,7 @@ If "selected pages": present the page list from the site map (after ARCHITECT ph
 Check if `.site-builder/status.md` exists:
 
 ### First Run (no status.md)
-→ Run Build Mode & Branch Setup, then start 9-phase pipeline from Phase 1.
+→ Run Build Mode & Branch Setup, then start 10-phase pipeline from Phase 1.
 
 ### Return Run (status.md exists)
 → Read `status.md` to determine state.
@@ -1004,6 +1004,7 @@ After every phase transition AND every sub-task completion, update `.site-builde
 - Phase 7 AUDIT: [pending|in_progress|completed] ([date])
 - Phase 8 INTEGRATE: [pending|in_progress|completed] ([date])
 - Phase 9 DEPLOY: [pending|in_progress|completed] ([date])
+- Phase 10 ANALYTICS: [pending|in_progress|completed] ([date])
 
 ## Current State
 
@@ -1014,16 +1015,17 @@ After every phase transition AND every sub-task completion, update `.site-builde
 
 ## Build Configuration
 
-- Pipeline version: 2
+- Pipeline version: 3
+- Init: [complete|pending]
 - Framework: [astro|nextjs|vue|react]
-- Mode: [demo|stage|prod]
+- Mode: [demo|prod]
 - Remote: [REMOTE_NAME] ([URL]) or none
 - Remote name: [REMOTE_NAME]
 - Has remote: [true|false]
 - Default branch: [branch name]
 - Deploy branch: [branch name] (same as default if not separate)
-- Working branch: [demo|stage|prod]
-- Base branch (PR target): [demo|stage|DEPLOY_BRANCH]
+- Base branch (PR target): [demo|DEPLOY_BRANCH|none]
+- Hosting platform: [vercel|netlify|custom|other — detail]
 - Demo scope: [full|selected]
 - Selected pages: [list, if applicable]
 
@@ -1036,16 +1038,24 @@ After every phase transition AND every sub-task completion, update `.site-builde
 - [ ] Page: [page-slug-2]
 - [ ] ...one entry per page from site map...
 - [ ] SEO implementation (sitemap with per-page lastmod + priority, robots, JSON-LD, llms.txt, IndexNow key)
+- [ ] Analytics scaffolding (GA4 snippet, cookie consent banner, conversion event stubs — no real credentials yet)
 - [ ] Performance optimization
 - [ ] Build verification
 
 ## Phase 9 Progress (DEPLOY)
 
+- [ ] Hosting platform chosen
 - [ ] CI/CD pipeline setup
 - [ ] IndexNow ping script created and added to CI/CD post-deploy step
 - [ ] Deployment config and environment variables
 - [ ] Sitemap verification (old vs new URLs)
 - [ ] Test deployment
+
+## Phase 10 Progress (ANALYTICS)
+
+- [ ] Real credentials collected from user
+- [ ] Credentials injected into environment configuration
+- [ ] Tracking verified firing on live deployed URL
 
 ## Agent Outputs
 
@@ -1113,14 +1123,15 @@ When any git or PR operation fails (push, PR creation, PR merge), follow this pa
 
 ### Pipeline Versioning
 
-To handle session resume across plugin updates (e.g., 8-phase → 9-phase):
+To handle session resume across plugin updates (e.g., 8-phase → 9-phase → 10-phase):
 
 **Phase matching by name, not number.** The orchestrator matches phases in `status.md` by their name (`DISCOVER`, `ARCHITECT`, `PREPARE`, etc.), not by their position number. This makes resume resilient to phase renumbering.
 
-**Version field in `status.md`:** Add `pipeline_version: 2` to the Build Configuration section.
+**Version field in `status.md`:** `pipeline_version: 3` in the Build Configuration section.
 
 - `pipeline_version: 1` — original 8-phase pipeline (no PREPARE phase)
-- `pipeline_version: 2` — current 9-phase pipeline (includes PREPARE)
+- `pipeline_version: 2` — 9-phase pipeline (added PREPARE, removed since v3)
+- `pipeline_version: 3` — current 10-phase pipeline (demo/prod only, hosting-agnostic deploy, Phase 10 ANALYTICS)
 
 **Resume rules for v1 → v2 transition:**
 
@@ -1129,6 +1140,30 @@ To handle session resume across plugin updates (e.g., 8-phase → 9-phase):
   - Do NOT re-run PREPARE — it would delete the already-built site
   - Remap old phase numbers to new names and continue from the last incomplete phase
   - Log: "Detected v1 pipeline status. Skipping PREPARE phase (scaffold already completed in DEVELOP)."
+
+**Resume rules for v2 → v3 transition:**
+
+- If `status.md` has `pipeline_version: 2` and Phases 1-9 are all `completed`:
+  - Treat this as a completed v2 build. Offer: "This build finished under
+    the previous 9-phase pipeline. Run the new Phase 10 ANALYTICS as an
+    optional upgrade? It injects real analytics credentials and verifies
+    tracking on your live URL." On accept, run Phase 10 as described in
+    this plugin's Phase 9 DEPLOY section addendum. On decline, leave Phase
+    10 unset — do not silently mark it completed or skipped.
+- If `status.md` has `pipeline_version: 2` and phases are mid-run:
+  - Remap phases by name (unaffected by the version bump — phase names
+    DISCOVER through DEPLOY are unchanged). Add `Phase 10 ANALYTICS:
+    pending` to the status if absent. Continue resuming from the last
+    incomplete phase as usual; Phase 10 becomes reachable once Phase 9
+    completes.
+  - If the in-progress build used `stage` mode (recorded before this
+    redesign): treat it as `demo` mode for all remaining phase-boundary
+    PRs — `stage` and `demo` used an identical workflow (working branch +
+    PRs to a base branch), so no data migration is needed beyond the mode
+    label. Warn the user once: "This build was started in the retired
+    `stage` mode. Continuing as `demo` mode — behavior is unchanged."
+- Update `pipeline_version` to `3` in `status.md` as part of either
+  transition above.
 
 ## Agent Spawning Pattern
 
