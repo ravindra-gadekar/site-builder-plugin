@@ -690,20 +690,26 @@ Everything in the working tree EXCEPT the default preserve list and architect ad
 **Step 3: Remove old files**
 Delete identified files and empty directories from working tree.
 
-**Step 4: Set up `.gitignore`**
-Create a framework-specific `.gitignore` with standard patterns:
+**Step 4: Re-run gitignore setup for the selected framework**
 
-Common patterns (all frameworks):
-- `node_modules/`, `.env*`, `.DS_Store`, `Thumbs.db`, `*.log`, `*.pem`
-- IDE files (`.idea/`, `.vscode/` settings)
+Init (Phase 1 Task 2 of this plugin's own git workflow reference) already
+ran `/gitignore rebuild` before the framework was known, producing
+universal/secrets/build/cache/ide/OS categories. Now that the framework is
+selected (Step 2b), re-run it to add framework-specific patterns:
 
-Note: `.site-builder/` should NOT be in `.gitignore` — it contains project artifacts (status.md, project-brief.md, design-system.md, content files, audit reports) that should be committed and tracked.
+```
+Invoke /gitignore rebuild
+```
 
-Framework-specific patterns:
-- **Astro:** `dist/`, `.astro/`
-- **Next.js:** `.next/`, `out/`, `next-env.d.ts`
-- **Vue/Nuxt:** `.nuxt/`, `.output/`, `dist/`
-- **React:** `build/`, `dist/`
+The `/gitignore` skill's tech-stack detection picks up the newly scaffolded
+framework's marker files (`astro.config.mjs`, `next.config.js`, etc.) and
+merges in the matching category (`.astro/`, `.next/`, `.nuxt/`, `dist/`,
+`build/`) without disturbing the universal categories already present.
+
+Note: `.site-builder/` should NOT be in `.gitignore` — it contains project
+artifacts (status.md, project-brief.md, design-system.md, content files,
+audit reports) that should be committed and tracked. The gitignore skill's
+catalog does not include `.site-builder/`, so no exclusion is needed.
 
 **Step 5: Commit cleanup** (if old files were removed)
 Commit: `chore: remove old website files for clean rebuild`
@@ -814,11 +820,13 @@ Update `status.md`: Phase 7 AUDIT → completed (cycles: N)
 
 ### Phase 8: INTEGRATE (parallel)
 
-1. Spawn both agents in parallel:
-   - `social-integration-agent`
-   - `analytics-agent`
-2. Wait for BOTH to complete
+1. Spawn `social-integration-agent`.
+2. Wait for completion.
 3. Verify code changes don't break the build: `npm run build`
+
+Analytics no longer runs here — it moved to the new Phase 10 ANALYTICS,
+which runs after deployment so the analytics-agent can verify tracking on
+a live URL instead of a local build.
 
 Update `status.md`: Phase 8 INTEGRATE → completed
 
