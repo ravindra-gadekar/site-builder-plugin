@@ -904,64 +904,63 @@ Report to user:
 
 ## Promote to Production
 
-Triggered when the user says "make it prod," "push to prod," "go live," "client approved," or similar.
+Triggered when the user says "make it prod," "push to prod," "go live,"
+"client approved," or similar.
 
-**Only applies to demo and stage modes.** In prod mode, code is already being merged into the production branch via PRs at each phase boundary — no promotion needed.
+**Only applies to demo mode.** In prod mode, code is already merged into
+`DEPLOY_BRANCH` via phase-boundary PRs — there is no promotion step.
 
-This is the ONLY time the production branch is touched in demo/stage modes.
+This is the only time the production branch is touched from a demo build.
+The orchestrator never checks out `demo` locally — the `demo` branch exists
+only on the remote, built up entirely through squash-merged phase-boundary
+PRs (Phase 2 of this plugin's own git workflow). Promotion works entirely
+through PR creation against that remote branch; `local-dev` is never left.
 
 ### Process
 
-1. Read `status.md` to confirm:
-   - All phases complete (or user accepts current state)
-   - Current working branch (`demo` or `stage`)
-   - `DEFAULT_BRANCH` and `DEPLOY_BRANCH` names
+1. Read `status.md` to confirm: mode is `demo`, all phases complete (or
+   user accepts current state), `DEFAULT_BRANCH` and `DEPLOY_BRANCH` names.
 
-2. Show the user what will happen:
-   - If `DEFAULT_BRANCH` == `DEPLOY_BRANCH`: "This will merge `[working branch]` into `[DEFAULT_BRANCH]`."
-   - If different: "This will merge `[working branch]` into `[DEPLOY_BRANCH]` to trigger production deployment. After post-production testing passes, you can sync to `[DEFAULT_BRANCH]`."
-   - Show: pages built, audit results, integration status
+2. **Pre-promotion check — verify all phase-boundary PRs are merged:**
+   List PRs targeting `demo` via `mcp__github__pull_request_read` /
+   `mcp__github__list_pull_requests`.
+   - All merged → continue to step 3.
+   - Any open → warn: "PR #[N] ([title]) targeting `demo` is still open."
+     Offer: (a) auto-merge it now (if checks pass), (b) abort promotion
+     until it's merged manually.
+   - If `HAS_REMOTE = false` (no remote — the `demo` branch was never
+     created, all commits live only on `local-dev`): skip this check
+     entirely, there is nothing to merge.
+
+3. Show the user what will happen:
+   - If `HAS_REMOTE = true`: "This will create a PR from `demo` into `DEPLOY_BRANCH` to trigger production deployment."
+   - If `HAS_REMOTE = false`: "No remote is configured, so there's no `demo` branch to promote from. This will simply flip the mode to `prod` — future phase-boundary work targets `DEPLOY_BRANCH` once a remote is added."
+   - Show: pages built, audit results, integration status.
    - If demo mode with selected pages only: warn "Only X of Y pages were built. Remaining pages are not included."
 
-3. Ask: "Proceed with merge to production?"
+4. Ask: "Proceed with promotion to production?"
 
-4. On approval:
+5. On approval:
    - If demo with partial pages: ask "Build remaining pages first, or go live with current pages?"
-   - **If `HAS_REMOTE = false` (no remote):**
-     1. Show the user: "This will merge `[working-branch]` into `[DEFAULT_BRANCH]` locally."
-     2. On approval:
-        - `git checkout DEFAULT_BRANCH`
-        - `git merge [working-branch]`
-        - `git checkout -b prod`
-        - Update `status.md`: mode → prod, working branch → `prod`, base branch → `DEFAULT_BRANCH`
-     3. If remote is added later, the `prod` branch gets pushed at the next phase boundary remote check.
-   - **If `HAS_REMOTE = true` — Merge via PRs (never direct push):**
-   - **If `DEFAULT_BRANCH` and `DEPLOY_BRANCH` are the same:**
-     1. Create PR: `[working-branch]` → `DEFAULT_BRANCH`
-     2. Merge the PR
-   - **If `DEFAULT_BRANCH` and `DEPLOY_BRANCH` are different:**
-     1. Create PR: `[working-branch]` → `DEPLOY_BRANCH` (triggers production CI/CD)
-     2. Merge the PR — site is now live
-     3. **Do NOT merge into `DEFAULT_BRANCH` yet** — post-production testing must happen first (see "Post-Production Sync" below)
-   - Run deploy-agent if CI/CD needs updating
-   - Create the prod working branch for future work:
-     ```bash
-     git checkout DEPLOY_BRANCH
-     git pull REMOTE_NAME DEPLOY_BRANCH
-     git checkout -b prod
-     git push -u REMOTE_NAME prod
-     ```
-   - Update `status.md`: mode → `prod`, working branch → `prod`, base branch → `DEPLOY_BRANCH`
+   - **`HAS_REMOTE = true`:**
+     1. Create PR: `demo` → `DEPLOY_BRANCH` via `mcp__github__create_pull_request`.
+     2. Merge the PR — site is now live.
+     3. Stay on `local-dev` — never checkout `demo` or `DEPLOY_BRANCH` at any point in this flow.
+   - **`HAS_REMOTE = false`:** no PR to create — proceed straight to step 6.
+   - Re-run Phase 9 DEPLOY if hosting needs reconfiguration for production (see Task 2 of this plan).
+   - Re-run Phase 10 ANALYTICS to verify tracking on the production URL (see Task 2 of this plan).
 
-5. On rejection: stay on working branch, ask what needs changing
+6. Update `status.md`: `Mode: prod`, `Base branch (PR target): DEPLOY_BRANCH`.
+
+7. On rejection: mode stays `demo`, ask what needs changing.
 
 ### After Promotion
 
 From this point forward:
-- Mode switches to **prod mode** — `DEPLOY_BRANCH` becomes the base branch (PR target)
-- Working branch is `prod` — all commits go here, never directly on `DEPLOY_BRANCH`
-- All subsequent changes follow the same git workflow (commit on `prod` → push to `feature/<name>` → PR targeting `DEPLOY_BRANCH` → squash merge → reset local to match)
-- The old `demo`/`stage` branch can be kept for reference or deleted
+- Mode switches to **prod mode** — `DEPLOY_BRANCH` becomes the PR target for all future phase-boundary work.
+- Working branch remains `local-dev` — nothing changes about where commits happen.
+- All subsequent changes follow the same git workflow (commit on `local-dev` → push to `feature/<name>` → PR targeting `DEPLOY_BRANCH` → squash merge). `local-dev` is still never reset and never pushed directly.
+- The `demo` branch (remote) can be kept for reference or deleted — it played no further role once promotion completes.
 
 ### Post-Production Sync to Default Branch
 
