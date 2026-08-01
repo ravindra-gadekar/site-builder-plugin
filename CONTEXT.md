@@ -34,7 +34,7 @@ This repo does not run an application at runtime — it is a documentation/instr
 
 ### Request Lifecycle
 
-1. A developer runs `npx skills add https://github.com/RANKME-TOP/site-builder-plugin --skill site-builder` inside a client website project.
+1. A developer runs `npx skills add https://github.com/ravindra-gadekar/site-builder-plugin --skill site-builder` inside a client website project.
 2. The developer invokes `/site-builder` inside Claude Code.
 3. The orchestrator skill (`skills/site-builder/SKILL.md`) inspects the client project's current state and dispatches the appropriate agent (`agents/*.md`) for the next lifecycle phase.
 4. The dispatched agent reads relevant reference docs and, for code-producing phases, the framework adapter matching the client project's stack.
