@@ -29,7 +29,7 @@
       "source": "ravindra-gadekar/fullstack-dev-plugin",
       "sourceType": "github",
       "skillPath": "skills/gitignore/SKILL.md",
-      "computedHash": "6c02cea02f0520cb5c3af566f77cee312006753cffeacd4868fbe1d8616b7e6f"
+      "computedHash": "470e7c7c32302c54b4f7217fe4e5017e589e478c9fcc31a8bcaf92487a24e39c"
     },
     "implement": {
       "source": "ravindra-gadekar/fullstack-dev-plugin",
@@ -47,7 +47,7 @@
       "source": "ravindra-gadekar/fullstack-dev-plugin",
       "sourceType": "github",
       "skillPath": "skills/project/SKILL.md",
-      "computedHash": "b87ae2e61a0631230bf1751e45b1299dc6e3205d83895c5ba6ad09f1d399e7a8"
+      "computedHash": "fe189d26f6dc6c55fea846e9231ecc8bbe061802bee40e90760edc79ed1ba3d5"
     },
     "refactor": {
       "source": "ravindra-gadekar/fullstack-dev-plugin",
