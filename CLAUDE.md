@@ -29,19 +29,19 @@ No application language/runtime — this repo is Markdown-based Claude Code conf
 ```bash
 # No install/build/test commands -- this repo ships Markdown only.
 # Distribution is via the `skills` CLI:
-npx skills add https://github.com/RANKME-TOP/site-builder-plugin --skill site-builder   # install into a client project
+npx skills add https://github.com/ravindra-gadekar/site-builder-plugin --skill site-builder   # install into a client project
 npx skills update site-builder                                                          # update an installed copy
 ```
 
 ### Git Workflow
 
-1. Work on `local-dev` branch -- never commit directly to `master`
+1. Work on `local-dev` branch -- never commit directly to `main`
 2. Commit using Conventional Commits: `<type>(<scope>): <summary>`
 3. When pushing: `git push origin local-dev:<type>/<name>`
-4. Create PR targeting `master` using MCP tools
+4. Create PR targeting `main` using MCP tools
 5. Never push `local-dev` to remote
 6. Never create local feature/fix branches
-7. Use `/git sync` to pull latest from `master`
+7. Use `/git sync` to pull latest from `main`
 
 ### GitHub Operations
 
