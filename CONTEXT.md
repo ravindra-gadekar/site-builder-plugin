@@ -25,7 +25,7 @@
 |---|---|
 | Site Builder | The end-to-end pipeline this plugin installs into a client website project |
 | Orchestrator | The `/site-builder` command that detects project state and drives the pipeline |
-| Build Mode | One of Demo / Stage / Prod — determines target branch and page scope for a build |
+| Build Mode | One of Demo / Prod — determines the PR target branch and page scope for a build |
 | Client project | The downstream repository where this plugin is installed (`npx skills add ...`) and where agents operate |
 
 ## Data Flow

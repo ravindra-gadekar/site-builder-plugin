@@ -1,6 +1,6 @@
 # Pipeline Phases
 
-The site-builder pipeline has 9 sequential phases. Each phase maps to one or more specialist agents. The orchestrator runs phases in order, managing gates between them.
+The site-builder pipeline has 10 sequential phases. Each phase maps to one or more specialist agents. The orchestrator runs phases in order, managing gates between them.
 
 ## Phase Definitions
 
@@ -66,21 +66,29 @@ The site-builder pipeline has 9 sequential phases. Each phase maps to one or mor
   5. Re-audit (parallel again)
 - **Duration estimate:** 10-20 minutes per cycle
 
-### Phase 8: INTEGRATE (parallel)
-- **Agents:** social-integration-agent, analytics-agent
-- **Purpose:** Connect social media, analytics, tracking infrastructure
+### Phase 8: INTEGRATE
+- **Agent:** social-integration-agent
+- **Purpose:** Connect social media presence — icons, share buttons, OG meta, schema sameAs links
 - **Inputs:** Built website code, `.site-builder/project-brief.md`
-- **Output:** Updated website code, `.site-builder/integration-reports/*.md`
+- **Output:** Updated website code, `.site-builder/integration-reports/social-integration.md`
 - **Gate:** None (flows into DEPLOY)
-- **Duration estimate:** 10-15 minutes
+- **Duration estimate:** 5-10 minutes
 
 ### Phase 9: DEPLOY
 - **Agent:** deploy-agent
-- **Purpose:** Config translation (server rules → framework/platform config), .env variable migration, CI/CD pipeline in-place update, sitemap verification, staging deployment, production readiness
+- **Purpose:** Orchestrator asks "Where do you want to deploy?" (hosting-agnostic — Vercel, Netlify, custom hosting, or other) before spawning the agent; deploy-agent then performs config translation (server rules → framework/platform config), .env variable migration, CI/CD pipeline in-place update (asking to keep or reconfigure any existing pipeline), sitemap verification, staging deployment, production readiness
 - **Inputs:** Built website code, `.site-builder/site-architecture.md`, `.site-builder/project-brief.md` (Environment & Migration Assessment), `status.md` (hosting decision), `reference/legacy-configs.md` (translation tables)
 - **Output:** Translated configs, updated CI/CD pipeline, `.env.example`, `.site-builder/integration-reports/deploy.md` (now includes config translation results, sitemap verification, CI/CD update summary), IndexNow ping script (`scripts/ping-indexnow.mjs`) and CI/CD post-deploy step
 - **Gate:** CONFIG TRANSLATION REVIEW (within agent) + USER APPROVAL (after deployment)
 - **Duration estimate:** 20-40 minutes (longer for complex migrations with many rules)
+
+### Phase 10: ANALYTICS
+- **Agent:** analytics-agent
+- **Purpose:** Connect real analytics credentials to the scaffolding Phase 6 DEVELOP already laid down, and verify tracking fires on the live deployed URL
+- **Inputs:** Live deployment URL (from Phase 9 DEPLOY), analytics scaffolding code (GA4 snippet, cookie consent banner, conversion event stubs from Phase 6), `.site-builder/site-architecture.md`
+- **Output:** Injected credentials in environment configuration, `.site-builder/integration-reports/analytics.md` updated with live verification results
+- **Gate:** USER APPROVAL — orchestrator presents verification results, user approves or provides corrected credentials to retry
+- **Duration estimate:** 5-15 minutes
 
 ## Update Mode
 

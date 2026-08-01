@@ -69,7 +69,7 @@ This ensures you use current APIs, not outdated patterns from training data.
 
 ### 0. Migration Safety (redesign with tech stack change)
 
-Since all work happens on a `demo` or `stage` branch (or `DEPLOY_BRANCH` in prod mode), the original code is safely preserved on the production branch. No backup folder is needed.
+Since all work happens on `local-dev` (with phase-boundary PRs targeting `demo` or `DEPLOY_BRANCH` depending on mode), the original code is safely preserved on the production branch. No backup folder is needed.
 
 If `site-architecture.md` indicates a tech stack change:
 
@@ -79,7 +79,7 @@ If `site-architecture.md` indicates a tech stack change:
 
 ### 1. Project Scaffold
 
-> **Note:** In the 9-phase pipeline (v2), scaffolding is handled during **Phase 3 PREPARE** via a narrowed developer-agent spawn. When invoked for the main DEVELOP phase (Phase 6), the scaffold is already complete — skip this step and start from Step 2 (Design Token Implementation).
+> **Note:** In the 10-phase pipeline (v3), scaffolding is handled during **Phase 3 PREPARE** via a narrowed developer-agent spawn. When invoked for the main DEVELOP phase (Phase 6), the scaffold is already complete — skip this step and start from Step 2 (Design Token Implementation).
 >
 > If invoked for PREPARE scaffold only, follow these steps and stop after build verification:
 
@@ -291,6 +291,29 @@ For every page in the site map:
   3. Create `public/<key>.txt` containing ONLY the key string
   4. The file MUST be named with the key value itself (e.g., `public/a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4.txt`), NOT `indexnow-key.txt`
   5. Add the key value as a comment in the site config for the deploy-agent to reference later
+
+### 8b. Analytics Scaffolding
+
+Lay down tracking infrastructure now, using placeholder environment
+variables — Phase 10 ANALYTICS (post-deploy) collects the real credentials
+and injects them. Do not block on the user having real IDs at this stage.
+
+- **GA4 snippet:** add the `gtag.js` loading pattern to the site's `<head>`
+  (via layout component), framework-appropriate per the adapter file.
+  Reference the tracking ID via an environment variable
+  (`PUBLIC_GA4_ID` / `NEXT_PUBLIC_GA4_ID`), left as a placeholder. Add a
+  matching entry to `.env.example`.
+- **Cookie consent banner:** add a minimal consent banner component with
+  Necessary/Analytics/Marketing categories, storing the user's choice in
+  `localStorage`. Gate GA4 (and any other tracking scaffolded here) behind
+  analytics consent — do not fire before consent.
+- **Conversion event stubs:** wire up (but leave inert until GA4 has a real
+  ID) event handlers for: form submission, `tel:` link clicks, primary CTA
+  clicks, `mailto:` link clicks.
+
+This scaffolding must not break `npm run build` even with placeholder
+environment variables unset — guard tracking initialization on the
+presence of a real ID, not just on consent.
 
 ### 9. URL Redirects (redesign only)
 
