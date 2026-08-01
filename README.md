@@ -21,8 +21,17 @@ npx skills update site-builder
 ### Run
 
 ```
-/site-builder
+/site-builder [--init] [--auto] [--parallel]
 ```
+
+| Flag | Effect |
+|------|--------|
+| *(none)* | Full interactive pipeline — asks everything, auto-running Init first if not yet complete |
+| `--init` | Runs Init only (git check, `.gitignore` setup, MCP configuration), then exits. Does not start the pipeline. |
+| `--auto` | Modifier — skips optional prompts (optional MCP setup, demo scope wording, framework elaboration). Never skips approval gates. |
+| `--parallel` | Modifier — dispatches read-only agents simultaneously wherever a phase supports it. |
+
+Flags are composable, e.g. `/site-builder --auto --parallel`. `--init` takes priority — if combined with `--auto`/`--parallel`, only Init runs; re-run `/site-builder [--auto] [--parallel]` afterward to start the pipeline. Unknown flags are ignored with a log notice, never a hard failure.
 
 The orchestrator detects your project state and guides you through the pipeline.
 
