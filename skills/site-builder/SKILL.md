@@ -183,14 +183,16 @@ creation, which only happens when there is a remote to push to.
    using the GitHub MCP server. This is required when your project has a
    git remote."
 
-2. **Detect environment** to determine the right configuration:
+2. **Always use the HTTP-based GitHub Copilot MCP server.** Do not detect
+   or use the GitHub CLI (`gh`), `@anthropic-ai/github-mcp-server`, or
+   any npx-based alternative — they are unreliable across environments.
+   The HTTP-based server is the only supported configuration.
 
    ```
-   Running inside VS Code with GitHub Copilot extension?
-   (Check: is `GITHUB_TOKEN` already set in the environment,
-    or does `.claude/settings.local.json` have it?)
-   +-- YES (Copilot environment) → configure HTTP-based server:
-   |   .mcp.json entry (safe to commit — no actual secret):
+   GITHUB_TOKEN already available?
+   (Check: `.claude/settings.local.json` has `env.GITHUB_TOKEN`,
+    or GITHUB_TOKEN is set in the shell environment)
+   +-- YES → configure .mcp.json only (token already stored):
    |   {
    |     "github": {
    |       "type": "http",
@@ -200,26 +202,24 @@ creation, which only happens when there is a remote to push to.
    |       }
    |     }
    |   }
-   |   GITHUB_TOKEN is already in `.claude/settings.local.json` →
-   |   no additional secret setup needed.
    |
-   +-- NO (standalone Claude Code CLI or other environment) →
-       Ask: "How is your GitHub authentication set up?"
+   +-- NO → Ask for a GitHub personal access token (PAT):
+       "GitHub MCP requires a personal access token. Enter your
+       GitHub PAT (create one at github.com/settings/tokens with
+       repo scope):"
        Options:
-       (a) I have a GitHub personal access token (PAT)
-       (b) I use GitHub CLI (gh) and am already logged in
-       (c) Skip — I'll configure GitHub MCP manually later
+       (a) User provides token → configure TWO files
+       (b) Skip — I'll configure it manually later
 
-       +-- (a) PAT → Ask for the token, then configure TWO files:
+       +-- (a) Token provided → configure TWO files:
        |
-       |   .mcp.json entry (safe to commit — references variable,
-       |   never the raw token):
+       |   .mcp.json entry (safe to commit — no actual secret):
        |   {
        |     "github": {
-       |       "command": "npx",
-       |       "args": ["-y", "@anthropic-ai/github-mcp-server"],
-       |       "env": {
-       |         "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+       |       "type": "http",
+       |       "url": "https://api.githubcopilot.com/mcp",
+       |       "headers": {
+       |         "Authorization": "Bearer ${GITHUB_TOKEN}"
        |       }
        |     }
        |   }
@@ -239,19 +239,11 @@ creation, which only happens when there is a remote to push to.
        |   (the gitignore setup from Section 2 already covers this
        |   via the Secrets category in `reference/gitignore.md`).
        |
-       +-- (b) GitHub CLI → configure .mcp.json only:
-       |   {
-       |     "github": {
-       |       "command": "npx",
-       |       "args": ["-y", "@anthropic-ai/github-mcp-server"]
-       |     }
-       |   }
-       |   (The server auto-detects `gh` auth — no token needed)
-       |
-       +-- (c) Skip → Warn: "GitHub MCP not configured. The
+       +-- (b) Skip → Warn: "GitHub MCP not configured. The
            pipeline will work locally but cannot create PRs at
            phase boundaries. You can configure it later by adding
-           a `github` entry to `.mcp.json`."
+           a `github` entry to `.mcp.json` and your token to
+           `.claude/settings.local.json`."
            Store `github_mcp: skipped` in `status.md`.
    ```
 
@@ -263,7 +255,7 @@ creation, which only happens when there is a remote to push to.
 
 3. After configuration: merge the server entry into `.mcp.json` (same
    rules as context7 — never overwrite existing entries, validate JSON).
-   If a PAT was provided, separately merge the token into
+   If a token was provided, separately merge it into
    `.claude/settings.local.json`.
 
 4. **Restart handling:** same as context7 — check if available, checkpoint
