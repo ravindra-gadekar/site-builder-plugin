@@ -125,6 +125,68 @@ If doc generation or hook installation fails for any reason: warn and
 continue — the pipeline does not depend on these docs existing. They are
 a quality-of-life improvement, not a gate.
 
+### 2.6. Claude Code Settings (`.claude/settings.json`)
+
+Configure project-level Claude Code settings — hooks and permissions.
+This file is committed to git (unlike `settings.local.json` which holds
+secrets).
+
+**If `.claude/settings.json` does not exist:** create it. If `.claude/`
+directory does not exist, create it first.
+
+**If it already exists:** merge the entries below into the existing
+object — never overwrite user-configured hooks or permissions.
+
+**Contents to configure:**
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "mcp__github__create_pull_request",
+      "mcp__github__list_pull_requests",
+      "mcp__github__merge_pull_request",
+      "mcp__github__pull_request_read",
+      "mcp__github__get_me"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '>> Docs may be stale. If you changed exports, schemas, or domain concepts, update the relevant ARCHITECTURE.md and CONTEXT.md sections now.'"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**What each entry does:**
+
+- **`permissions.allow`** — pre-approves MCP tools the orchestrator and
+  agents use frequently, so the user is not prompted for permission on
+  every PR creation or docs lookup. The user can always revoke or adjust
+  these in settings.
+- **`hooks.PostToolUse`** — Layer 1 of the doc-refresh system (see
+  `reference/doc-refresh.md`). After every `Edit` or `Write` during a
+  Claude session, echoes a reminder to refresh project docs if relevant
+  files changed. This is the primary mechanism that keeps docs current.
+
+**Merge rules:**
+
+- If `permissions.allow` already exists, append new entries that are not
+  already in the array. Never duplicate.
+- If `hooks.PostToolUse` already exists, check if a hook with the same
+  `command` string is already present. If so, skip. If not, append.
+- Preserve all existing user entries in both sections.
+
 ### 3. context7 MCP (Required)
 
 **Detection:** Check if `context7` is configured as an MCP server:
