@@ -24,13 +24,14 @@ is met into one file, deduplicated, in the **Category Sort Order** below.
 | Nuxt | `nuxt.config.*` exists, or framework choice is `vue` (this pipeline's Vue adapter scaffolds Nuxt) | No | `.nuxt/`, `.output/` (`dist/` already covered by Build) |
 | React (Vite) | `vite.config.*` exists, or framework choice is `react` | No | none beyond Build/Cache — Vite's `dist/` and `.vite/` are already covered |
 | Deployment | `vercel.json`, `netlify.toml`, or `firebase.json` present (Phase 9 DEPLOY target) | No | matching one of: `.vercel/`, `.netlify/`, `.firebase/` |
-| Skills CLI | `skills-lock.json` exists at the project root (true for every project that installed this plugin via `npx skills add`) | No | `.claude/skills/`, `.agents/` |
+| Site Builder | — | Yes | `.site-builder/`, `.mcp.json`, `*.code-workspace` |
+| Skills CLI | `skills-lock.json` exists at the project root (true for every project that installed this plugin via `npx skills add`) | No | `.claude/skills/`, `.agents/`, `skills-lock.json` |
 
 ### Category Sort Order
 
 `universal`, `secrets`, framework-specific (astro/nextjs/nuxt/react, in that
 order — only the ones that are active), `build`, `cache`, `ide`,
-`macos`/`windows`/`linux`, `deployment`, `skills-cli`.
+`macos`/`windows`/`linux`, `site-builder`, `deployment`, `skills-cli`.
 
 ## Marker Block Format
 
@@ -104,6 +105,8 @@ Nuxt/React) is now detectable from the newly-created config file, so it
 merges in on top of what Init already wrote — this is the same "replace in
 place" branch above, not a second independent write.
 
-Note: `.site-builder/` must never be added to `.gitignore` — it holds
-project artifacts (`status.md`, `project-brief.md`, `design-system.md`,
-content files, audit reports) that should be committed and tracked.
+Note: `.site-builder/` is gitignored (Site Builder category) — it holds
+pipeline state and intermediate artifacts that are tool output, not client
+deliverables. The three project docs (`CONTEXT.md`, `ARCHITECTURE.md`,
+`CLAUDE.md`) live at the project root and ARE tracked — they are valuable
+documentation regardless of whether the site-builder plugin is installed.
