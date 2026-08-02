@@ -203,28 +203,27 @@ creation, which only happens when there is a remote to push to.
    |     }
    |   }
    |
-   +-- NO → Ask for a GitHub personal access token (PAT):
-       "GitHub MCP requires a personal access token. Enter your
-       GitHub PAT (create one at github.com/settings/tokens with
-       repo scope):"
-       Options:
-       (a) User provides token → configure TWO files
-       (b) Skip — I'll configure it manually later
+   +-- NO → Configure `.mcp.json` with the GitHub server entry
+       first (this is always safe — no secret in this file):
+       {
+         "github": {
+           "type": "http",
+           "url": "https://api.githubcopilot.com/mcp",
+           "headers": {
+             "Authorization": "Bearer ${GITHUB_TOKEN}"
+           }
+         }
+       }
 
-       +-- (a) Token provided → configure TWO files:
-       |
-       |   .mcp.json entry (safe to commit — no actual secret):
-       |   {
-       |     "github": {
-       |       "type": "http",
-       |       "url": "https://api.githubcopilot.com/mcp",
-       |       "headers": {
-       |         "Authorization": "Bearer ${GITHUB_TOKEN}"
-       |       }
-       |     }
-       |   }
-       |
-       |   Store the token in `.claude/settings.local.json`:
+       Then ask the user for the token via AskUserQuestion:
+       "GitHub MCP needs a personal access token to create PRs.
+       How would you like to provide it?"
+       Options:
+       (a) Enter token now — I'll paste it here
+       (b) I'll add it myself to .claude/settings.local.json
+       (c) Skip — I'll set it up later
+
+       +-- (a) User provides token → store it:
        |
        |   1. If `.claude/` directory does not exist → create it
        |   2. If `.claude/settings.local.json` does not exist →
@@ -243,11 +242,25 @@ creation, which only happens when there is a remote to push to.
        |   (the gitignore setup from Section 2 already covers this
        |   via the Secrets category in `reference/gitignore.md`).
        |
-       +-- (b) Skip → Warn: "GitHub MCP not configured. The
-           pipeline will work locally but cannot create PRs at
-           phase boundaries. You can configure it later by adding
-           a `github` entry to `.mcp.json` and your token to
-           `.claude/settings.local.json`."
+       +-- (b) User will add it themselves → create the file
+       |   structure for them (directory + empty template) if it
+       |   doesn't exist, then show instructions:
+       |   "Add your GitHub PAT to `.claude/settings.local.json`:
+       |   ```json
+       |   {
+       |     "env": {
+       |       "GITHUB_TOKEN": "ghp_your_token_here"
+       |     }
+       |   }
+       |   ```
+       |   Create a token at github.com/settings/tokens (repo
+       |   scope). Restart Claude Code after saving the file."
+       |   Store `github_mcp: pending_token` in `status.md`.
+       |
+       +-- (c) Skip → Warn: "GitHub MCP server entry added to
+           `.mcp.json` but no token configured. The pipeline will
+           work locally but PR creation will fail until you add
+           your token to `.claude/settings.local.json`."
            Store `github_mcp: skipped` in `status.md`.
    ```
 
