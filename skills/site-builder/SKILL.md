@@ -224,16 +224,20 @@ creation, which only happens when there is a remote to push to.
        |     }
        |   }
        |
-       |   .claude/settings.local.json (gitignored — actual secret):
-       |   {
-       |     "env": {
-       |       "GITHUB_TOKEN": "<user-provided-token>"
-       |     }
-       |   }
+       |   Store the token in `.claude/settings.local.json`:
        |
-       |   If `.claude/settings.local.json` already exists, merge
-       |   the `GITHUB_TOKEN` into the existing `env` object —
-       |   never overwrite other entries.
+       |   1. If `.claude/` directory does not exist → create it
+       |   2. If `.claude/settings.local.json` does not exist →
+       |      create it with:
+       |      {
+       |        "env": {
+       |          "GITHUB_TOKEN": "<user-provided-token>"
+       |        }
+       |      }
+       |   3. If `.claude/settings.local.json` already exists →
+       |      read it, merge `GITHUB_TOKEN` into the existing
+       |      `env` object (create `env` key if missing), never
+       |      overwrite other entries. Write back.
        |
        |   Verify `.gitignore` includes `.claude/settings.local.json`
        |   (the gitignore setup from Section 2 already covers this
