@@ -41,6 +41,7 @@ The orchestrator detects your project state and guides you through the pipeline.
 |------------|--------|---------|
 | Git initialized | **Required** | Version control for generated code |
 | context7 MCP | **Required** | Developer agent fetches current framework docs |
+| GitHub MCP | **Required** (when remote exists) | Phase-boundary PR creation; auto-configured during Init |
 | Image generation MCP | Recommended | Content agent generates images (otherwise produces briefs) |
 | Analytics MCP | Optional | Centralized analytics connector management |
 
@@ -232,7 +233,10 @@ site-builder-plugin/
         │   ├── quality-gates.md
         │   ├── design-principles.md
         │   ├── audit-standards.md
-        │   └── handoff-checklist.md
+        │   ├── handoff-checklist.md
+        │   ├── gitignore.md         # Self-contained .gitignore generation
+        │   ├── doc-templates.md     # CLAUDE.md/CONTEXT.md/ARCHITECTURE.md templates
+        │   └── doc-refresh.md       # Two-layer doc refresh (pipeline + pre-commit hook)
         └── adapters/                # Framework-specific patterns
             ├── astro.md
             ├── nextjs.md

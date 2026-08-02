@@ -72,27 +72,58 @@ All later pipeline work happens on `local-dev` — see the Git Operations Protoc
 
 ### 2. Gitignore Setup
 
-Delegate to the `/gitignore` skill rather than generating `.gitignore` inline:
-
-```
-Invoke /gitignore rebuild
-```
-
-This generates `.gitignore` from the shared pattern catalog and installs the
-POSIX `sh` pre-commit hook (confirmed POSIX-compliant — the hook template in
-the gitignore skill's `reference/gitignore-flow.md` Section 3 explicitly
-avoids bash-only syntax so it runs under `dash`/`ash`, not just `bash`; no
-follow-up issue is needed).
+Generate `.gitignore` inline — this orchestrator is self-contained and does
+not depend on any other skill being installed. Follow
+`reference/gitignore.md` (pattern catalog, marker block format, and the
+non-destructive write procedure).
 
 **Framework is not yet known at init time** (framework selection happens
-after Phase 1 DISCOVER approval, in Step 2b). This first `/gitignore
-rebuild` call produces universal/secrets/build/cache/ide/OS categories only.
-Phase 3 PREPARE re-runs `/gitignore rebuild` after framework selection to
-add framework-specific patterns (`.astro/`, `.next/`, `.nuxt/`, etc.).
+after Phase 1 DISCOVER approval, in Step 2b). This first pass writes the
+always-active categories only (universal/secrets/build/cache/ide/OS) plus
+Skills CLI/Deployment detection. Phase 3 PREPARE re-runs generation after
+framework selection to merge in framework-specific patterns (`.astro/`,
+`.next/`, `.nuxt/`, etc.) — see `reference/gitignore.md`'s "Init-Time vs.
+PREPARE-Time Runs" section.
 
-If `/gitignore rebuild` fails: warn and continue — "Automatic .gitignore
-setup failed. You can run `/gitignore rebuild` manually, or set up
-`.gitignore` by hand before Phase 3 PREPARE."
+If generation fails for any reason: warn and continue — "Automatic
+.gitignore setup failed. You can set up `.gitignore` by hand before Phase 3
+PREPARE." — but never leave the working tree worse off than before Init
+ran (per `reference/gitignore.md`'s Write Procedure, the existing file is
+read in full before anything is written, never deleted first).
+
+### 2.5. Project Documentation
+
+Generate `CONTEXT.md`, `ARCHITECTURE.md`, and `CLAUDE.md` in the project
+root. Follow `reference/doc-templates.md` for templates and population
+rules.
+
+**If any of these files already exist:**
+- `CONTEXT.md` / `ARCHITECTURE.md` — update sections with current data
+  from the project (scan package.json, directory structure, config files).
+  Preserve any manual additions the user made.
+- `CLAUDE.md` — search for `<!-- site-builder:start -->` /
+  `<!-- site-builder:end -->` markers. If found, replace only the marker
+  block content. If no markers exist, append the marker block at the end
+  of the file. Never overwrite user content outside the markers.
+
+**If these files don't exist:** create them from the templates in
+`reference/doc-templates.md`. At init time the project may be empty
+(greenfield) — populate whatever is available from existing files and
+leave the rest as placeholders. The pipeline enriches these docs as it
+progresses (see `reference/doc-refresh.md` for the phase-by-phase refresh
+mapping).
+
+**Pre-commit hook for auto-staging:** After generating docs, install the
+pre-commit hook from `reference/doc-refresh.md` (Layer 2) into
+`.git/hooks/pre-commit`. This ensures that when the orchestrator or any
+agent refreshes docs during the pipeline, the updated files are
+automatically staged into the next commit. The hook uses a
+`site-builder:docs` marker block so it coexists with the gitignore hook
+from Section 2 and any other existing hooks.
+
+If doc generation or hook installation fails for any reason: warn and
+continue — the pipeline does not depend on these docs existing. They are
+a quality-of-life improvement, not a gate.
 
 ### 3. context7 MCP (Required)
 
@@ -133,6 +164,115 @@ setup failed. You can run `/gitignore rebuild` manually, or set up
    - On re-run, if checkpoint shows `prerequisites: complete`, skip prerequisites and jump to DISCOVER
 
 5. If user declines: Warn that the developer agent will not have access to current framework docs, which may result in outdated API usage. Proceed anyway — do not block the pipeline.
+
+### 3.5. GitHub MCP (Required when remote exists)
+
+This step is **skipped** if Init Step 1b determined there is no remote
+origin (`HAS_REMOTE = false`). The GitHub MCP is only needed for PR
+creation, which only happens when there is a remote to push to.
+
+**Detection:** Check if a `github` MCP server is already configured in
+`.mcp.json`:
+- Look for an entry named `github` under `mcpServers`
+- Also check for any entry whose name contains `github`
+- If found → configured, proceed
+
+**When NOT configured and `HAS_REMOTE = true`:**
+
+1. Inform the user: "The site-builder creates PRs at phase boundaries
+   using the GitHub MCP server. This is required when your project has a
+   git remote."
+
+2. **Detect environment** to determine the right configuration:
+
+   ```
+   Running inside VS Code with GitHub Copilot extension?
+   (Check: is `GITHUB_TOKEN` already set in the environment,
+    or does `.claude/settings.local.json` have it?)
+   +-- YES (Copilot environment) → configure HTTP-based server:
+   |   .mcp.json entry (safe to commit — no actual secret):
+   |   {
+   |     "github": {
+   |       "type": "http",
+   |       "url": "https://api.githubcopilot.com/mcp",
+   |       "headers": {
+   |         "Authorization": "Bearer ${GITHUB_TOKEN}"
+   |       }
+   |     }
+   |   }
+   |   GITHUB_TOKEN is already in `.claude/settings.local.json` →
+   |   no additional secret setup needed.
+   |
+   +-- NO (standalone Claude Code CLI or other environment) →
+       Ask: "How is your GitHub authentication set up?"
+       Options:
+       (a) I have a GitHub personal access token (PAT)
+       (b) I use GitHub CLI (gh) and am already logged in
+       (c) Skip — I'll configure GitHub MCP manually later
+
+       +-- (a) PAT → Ask for the token, then configure TWO files:
+       |
+       |   .mcp.json entry (safe to commit — references variable,
+       |   never the raw token):
+       |   {
+       |     "github": {
+       |       "command": "npx",
+       |       "args": ["-y", "@anthropic-ai/github-mcp-server"],
+       |       "env": {
+       |         "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+       |       }
+       |     }
+       |   }
+       |
+       |   .claude/settings.local.json (gitignored — actual secret):
+       |   {
+       |     "env": {
+       |       "GITHUB_TOKEN": "<user-provided-token>"
+       |     }
+       |   }
+       |
+       |   If `.claude/settings.local.json` already exists, merge
+       |   the `GITHUB_TOKEN` into the existing `env` object —
+       |   never overwrite other entries.
+       |
+       |   Verify `.gitignore` includes `.claude/settings.local.json`
+       |   (the gitignore setup from Section 2 already covers this
+       |   via the Secrets category in `reference/gitignore.md`).
+       |
+       +-- (b) GitHub CLI → configure .mcp.json only:
+       |   {
+       |     "github": {
+       |       "command": "npx",
+       |       "args": ["-y", "@anthropic-ai/github-mcp-server"]
+       |     }
+       |   }
+       |   (The server auto-detects `gh` auth — no token needed)
+       |
+       +-- (c) Skip → Warn: "GitHub MCP not configured. The
+           pipeline will work locally but cannot create PRs at
+           phase boundaries. You can configure it later by adding
+           a `github` entry to `.mcp.json`."
+           Store `github_mcp: skipped` in `status.md`.
+   ```
+
+   **Secret handling rule:** The raw token MUST go into
+   `.claude/settings.local.json` (gitignored), NEVER directly into
+   `.mcp.json` (committed). The `.mcp.json` entry references the token
+   via `${GITHUB_TOKEN}` — Claude Code resolves environment variables
+   from `settings.local.json`'s `env` block at runtime.
+
+3. After configuration: merge the server entry into `.mcp.json` (same
+   rules as context7 — never overwrite existing entries, validate JSON).
+   If a PAT was provided, separately merge the token into
+   `.claude/settings.local.json`.
+
+4. **Restart handling:** same as context7 — check if available, checkpoint
+   to `status.md` if restart needed.
+
+5. **If user declines or skips:** the pipeline still works for local-only
+   development. Phase-boundary PR creation will be skipped with a warning
+   at each boundary: "GitHub MCP not configured — skipping PR creation.
+   Commits are saved locally on `local-dev`."
 
 ### 4. Image Generation MCP (Optional)
 
@@ -251,7 +391,7 @@ These rules apply to ALL MCP configuration above:
 ### Completing Init
 
 1. Record in `.site-builder/status.md` under Build Configuration: `init: complete`.
-2. If Init was invoked via `--init`: report a short summary (git state, gitignore categories applied, MCPs configured/skipped) and EXIT. Do not start the pipeline in the same invocation.
+2. If Init was invoked via `--init`: report a short summary (git state, gitignore categories applied, docs created/updated, MCPs configured/skipped) and EXIT. Do not start the pipeline in the same invocation.
 3. If Init was invoked via the pipeline's auto-detect guard (see below): proceed directly into Build Mode & Branch Setup — no separate exit.
 
 ### `--init` Re-run Guard
@@ -502,7 +642,7 @@ using Conventional Commits (adopting `/git` skill formatting):
 | 10. ANALYTICS | Credentials injected and verified | `feat: connect analytics credentials and verify tracking` |
 
 **Before each commit, the orchestrator:**
-1. Check `.gitignore` — add new patterns if framework tooling generated new output directories (or re-run `/gitignore rebuild`)
+1. Check `.gitignore` — add new patterns if framework tooling generated new output directories (re-run the generation procedure in `reference/gitignore.md` if needed)
 2. Run `git status` — verify no unwanted files (secrets, temp files, IDE configs)
 3. Stage only relevant files — never `git add .` blindly. Use specific paths or `git add -A` after `.gitignore` is verified correct.
 4. Commit with the appropriate message
@@ -536,7 +676,7 @@ locally on `local-dev`, continue working — no push yet.
    - Does not exist → create it from `DEFAULT_BRANCH`: `git push REMOTE_NAME DEFAULT_BRANCH:refs/heads/demo`
    This is the *only* place the `demo` branch is created — never during Init, never during Branch Setup.
 2. Push accumulated commits from `local-dev` to a feature branch, adopting `/git`'s `<type>/<name>` naming: `git push REMOTE_NAME local-dev:feature/<phase-name>`
-3. Create PR via `mcp__github__create_pull_request` targeting the mode's base branch (from Step 3: `demo` or `DEPLOY_BRANCH`).
+3. Create PR via `mcp__github__create_pull_request` targeting the mode's base branch (from Step 3: `demo` or `DEPLOY_BRANCH`). If GitHub MCP was skipped during Init (Step 3.5), skip PR creation with a warning: "GitHub MCP not configured — commits pushed to `feature/<phase-name>` but no PR created. Create one manually or configure GitHub MCP and re-run."
 4. **Squash merge** the PR — one clean commit per phase on the base branch, granular sub-task history preserved in the PR on GitHub.
 5. **`local-dev` is NOT reset.** Unlike a single-target branch workflow, `local-dev` never tracks the base branch — it's a one-way flow. Granular commits stay on `local-dev`; the squash commit lives on the base branch. The next phase boundary pushes the next batch of `local-dev` commits to a *new* typed branch (no drift, no conflict).
 6. **Never push `local-dev` to remote.** Only typed feature branches (`feature/<phase-name>`) are pushed.
@@ -645,6 +785,10 @@ Check if `.site-builder/status.md` exists:
 
 Update `status.md`: Phase 1 DISCOVER → completed
 
+**Doc refresh:** Update `CONTEXT.md` — populate entities, glossary, and
+data flow sections from the approved project brief (see
+`reference/doc-refresh.md` Phase 1 mapping).
+
 ### Phase 2: ARCHITECT
 
 1. Spawn `architect-agent` with prompt:
@@ -658,6 +802,10 @@ Update `status.md`: Phase 1 DISCOVER → completed
    - On changes → re-run architect-agent with feedback
 
 Update `status.md`: Phase 2 ARCHITECT → completed
+
+**Doc refresh:** Update `CONTEXT.md` (conventions, decisions from
+architecture) and `CLAUDE.md` marker block (confirmed tech stack). See
+`reference/doc-refresh.md` Phase 2 mapping.
 
 ### Phase 3: PREPARE
 
@@ -690,26 +838,27 @@ Everything in the working tree EXCEPT the default preserve list and architect ad
 **Step 3: Remove old files**
 Delete identified files and empty directories from working tree.
 
-**Step 4: Re-run gitignore setup for the selected framework**
+**Step 4: Re-run gitignore generation for the selected framework**
 
-Init (Phase 1 Task 2 of this plugin's own git workflow reference) already
-ran `/gitignore rebuild` before the framework was known, producing
+Init (Section 2 of the orchestrator's own Init flow) already generated
+`.gitignore` before the framework was known, producing
 universal/secrets/build/cache/ide/OS categories. Now that the framework is
-selected (Step 2b), re-run it to add framework-specific patterns:
+selected (Step 2b) and scaffolded, re-run the same procedure — follow
+`reference/gitignore.md` again — to merge in the framework-specific
+category.
 
-```
-Invoke /gitignore rebuild
-```
-
-The `/gitignore` skill's tech-stack detection picks up the newly scaffolded
-framework's marker files (`astro.config.mjs`, `next.config.js`, etc.) and
-merges in the matching category (`.astro/`, `.next/`, `.nuxt/`, `dist/`,
-`build/`) without disturbing the universal categories already present.
+The newly scaffolded framework's marker file (`astro.config.mjs`,
+`next.config.js`, `nuxt.config.ts`, `vite.config.ts`) is now on disk, so
+`reference/gitignore.md`'s Astro/Next.js/Nuxt/React detection picks up the
+matching category (`.astro/`, `.next/`, `.nuxt/`, etc.) and merges it in via
+the "replace in place" branch of the Write Procedure — the universal
+categories already present are preserved, not regenerated from scratch.
 
 Note: `.site-builder/` should NOT be in `.gitignore` — it contains project
 artifacts (status.md, project-brief.md, design-system.md, content files,
-audit reports) that should be committed and tracked. The gitignore skill's
-catalog does not include `.site-builder/`, so no exclusion is needed.
+audit reports) that should be committed and tracked. The pattern catalog in
+`reference/gitignore.md` does not include `.site-builder/`, so no exclusion
+is needed.
 
 **Step 5: Commit cleanup** (if old files were removed)
 Commit: `chore: remove old website files for clean rebuild`
@@ -730,6 +879,11 @@ Commit: `feat: scaffold [framework] project`
 `npm run build` must pass. If not, developer-agent fixes before proceeding.
 
 Update `status.md`: Phase 3 PREPARE → completed
+
+**Doc refresh:** Update `ARCHITECTURE.md` (directory structure, patterns,
+entry points, build commands from scaffolded project) and `CLAUDE.md`
+marker block (build commands). See `reference/doc-refresh.md` Phase 3
+mapping.
 
 ### Phase 4: DESIGN
 
@@ -777,6 +931,9 @@ The developer agent is the heaviest token consumer. Instead of one massive "buil
 **On session resume:** Orchestrator reads Phase 5 Progress checkboxes from `status.md`. Skips all checked items. Resumes from first unchecked sub-task.
 
 Update `status.md`: Phase 6 DEVELOP → completed (only after all sub-tasks pass)
+
+**Doc refresh:** Update `ARCHITECTURE.md` (finalized component tree,
+routes, dependencies). See `reference/doc-refresh.md` Phase 6 mapping.
 
 ### Phase 7: AUDIT (loop)
 
@@ -872,6 +1029,9 @@ Update `status.md`: Phase 8 INTEGRATE → completed
    - On changes → re-run deploy-agent with feedback
 
 Update `status.md`: Phase 9 DEPLOY → completed
+
+**Doc refresh:** Update `CLAUDE.md` marker block (deployment target,
+CI/CD info). See `reference/doc-refresh.md` Phase 9 mapping.
 
 ### Phase 10: ANALYTICS
 
