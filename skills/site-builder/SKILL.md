@@ -925,11 +925,10 @@ matching category (`.astro/`, `.next/`, `.nuxt/`, etc.) and merges it in via
 the "replace in place" branch of the Write Procedure — the universal
 categories already present are preserved, not regenerated from scratch.
 
-Note: `.site-builder/` should NOT be in `.gitignore` — it contains project
-artifacts (status.md, project-brief.md, design-system.md, content files,
-audit reports) that should be committed and tracked. The pattern catalog in
-`reference/gitignore.md` does not include `.site-builder/`, so no exclusion
-is needed.
+Note: `.site-builder/` IS gitignored (see `reference/gitignore.md`, Site
+Builder category) — it holds pipeline state and intermediate artifacts,
+not client deliverables. The three project docs (`CONTEXT.md`,
+`ARCHITECTURE.md`, `CLAUDE.md`) live at the project root and are tracked.
 
 **Step 5: Commit cleanup** (if old files were removed)
 Commit: `chore: remove old website files for clean rebuild`
