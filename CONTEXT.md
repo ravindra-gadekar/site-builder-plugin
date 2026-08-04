@@ -6,7 +6,7 @@
 
 | Entity | Description | Source |
 |---|---|---|
-| Agent | A specialized AI persona (e.g. discovery, architect, designer, developer, deploy) that performs one stage of the website build lifecycle | `agents/*.md` |
+| Agent | A specialized AI persona (e.g. discovery, architect, designer, developer, deploy, seo-indexing) that performs one stage of the website build lifecycle | `agents/*.md` |
 | Skill | A packaged, reusable set of instructions installed via the `skills` CLI that Claude Code loads to perform a workflow | `skills/site-builder/SKILL.md`, `.agents/skills/*` |
 | Adapter | A framework-specific implementation of the site-builder pipeline (Astro, Next.js, Vue, React) | `skills/site-builder/adapters/*.md` |
 | Template | Reusable code/config scaffolding (animations, video handling) referenced by the developer agent | `templates/**` |
@@ -14,7 +14,7 @@
 
 ### Relationships
 
-- The **master orchestrator** (`/site-builder`) sequences 14 **Agents** through the website build lifecycle (business analysis -> design -> development -> deployment).
+- The **master orchestrator** (`/site-builder`) sequences 15 **Agents** through the website build lifecycle (business analysis -> design -> development -> deployment).
 - Each **Agent** may consult one or more **Reference Docs** and, for the developer agent, an **Adapter** matching the target framework.
 - **Templates** are consumed by the developer agent when scaffolding a client site.
 - The plugin itself is distributed and updated via the `skills` CLI (`skills-lock.json` tracks the installed skill versions/hashes), separate from the `site-builder` skill this repo authors and ships.
