@@ -2,13 +2,13 @@
 
 ## Purpose
 
-This repo is a Claude Code skills plugin. It packages a master orchestrator and 14 specialized AI agents that together run the full lifecycle of building a client website — business discovery, architecture, design, content, development, audits (accessibility/SEO/schema/technical), analytics, social integration, and deployment.
+This repo is a Claude Code skills plugin. It packages a master orchestrator and 15 specialized AI agents that together run the full lifecycle of building a client website — business discovery, architecture, design, content, development, audits (accessibility/SEO/schema/technical), analytics, social integration, and deployment.
 
 ## Directory Structure
 
 ```
 site-builder-plugin/
-+-- agents/              # 14 phase-specific agent definitions (Markdown)
++-- agents/              # 15 phase-specific agent definitions (Markdown)
 +-- skills/
 |   +-- site-builder/     # The installable skill: orchestrator SKILL.md, adapters/, reference/
 +-- templates/            # Scaffolding assets (animations, video handling) used by the developer agent

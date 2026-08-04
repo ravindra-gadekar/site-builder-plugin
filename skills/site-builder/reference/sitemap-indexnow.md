@@ -18,6 +18,9 @@ Google uses `lastmod` only when it is "consistently and verifiably accurate." Un
 
 **What counts as a meaningful edit:** Changes to main content, structured data, or links. NOT: copyright year updates, CSS changes, dependency bumps, build config tweaks.
 
+> **Phase 11 override:** `seo-indexing-agent` overrides these per-page dates
+> with git-derived resolution — see Section F.
+
 ---
 
 ## Section B: Priority Table
@@ -295,79 +298,46 @@ Add to `package.json`:
 
 **Update mode:** Never regenerate a key if one already exists. Regenerating would break existing IndexNow verification with search engines and leave the old key file orphaned.
 
-### Ping Script (Phase 9 -- deploy-agent)
+### Inline CI Notification (Phase 9 -- deploy-agent)
 
-Create `scripts/ping-indexnow.mjs`:
+No separate script file is created. The post-deploy notification step lives
+entirely inline in the CI/CD workflow config, using `grep`/`jq`/`curl`.
 
-```js
-#!/usr/bin/env node
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+**GitHub Actions** -- add after the deploy step in `.github/workflows/deploy.yml`:
 
-const SITE = 'https://<site-domain>';
-const KEY = '<generated-key>';
-const SITEMAP_PATH = resolve('<output-dir>/sitemap-0.xml'); // see table below
-
-// Handle both single sitemap and sitemap index files
-let urls = [];
-const xml = readFileSync(SITEMAP_PATH, 'utf-8');
-if (xml.includes('<sitemapindex')) {
-  // Sitemap index — read each referenced sitemap file
-  const sitemapLocs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
-  for (const loc of sitemapLocs) {
-    const filename = loc.split('/').pop();
-    const filepath = resolve(SITEMAP_PATH, '..', filename);
-    try {
-      const sub = readFileSync(filepath, 'utf-8');
-      urls.push(...[...sub.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]));
-    } catch { /* sitemap file not found locally */ }
-  }
-} else {
-  urls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
-}
-
-if (urls.length === 0) {
-  console.log('No URLs found in sitemap — skipping IndexNow ping');
-  process.exit(0);
-}
-
-console.log(`Found ${urls.length} URLs in sitemap`);
-
-// IndexNow batch limit: 10,000 URLs per request
-const BATCH_SIZE = 10000;
-for (let i = 0; i < urls.length; i += BATCH_SIZE) {
-  const batch = urls.slice(i, i + BATCH_SIZE);
-  const payload = {
-    host: new URL(SITE).hostname,
-    key: KEY,
-    keyLocation: `${SITE}/${KEY}.txt`,
-    urlList: batch,
-  };
-
-  try {
-    const res = await fetch('https://api.indexnow.org/indexnow', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      body: JSON.stringify(payload),
-    });
-    console.log(`IndexNow batch ${Math.floor(i / BATCH_SIZE) + 1}: ${res.status} ${res.statusText}`);
-    if (res.status === 429) {
-      console.warn('Rate limited — reduce submission frequency');
-    }
-  } catch (err) {
-    console.error('IndexNow failed:', err.message);
-  }
-}
-
-// NOTE: This script submits ALL sitemap URLs on every deploy. For small sites
-// (< 100 pages) with infrequent deploys, this is fine. If rate limiting (429)
-// becomes an issue, add change detection: diff the current sitemap against a
-// cached copy from the previous deploy and submit only changed/new URLs.
-
-// Google does not participate in IndexNow.
-// Google discovery relies on accurate lastmod dates + natural crawling.
-// Google deprecated its sitemap ping endpoint in June 2023.
+```yaml
+- name: Notify search engines via IndexNow
+  run: |
+    SITE="https://<site-domain>"
+    SITEMAP_PATH="<output-dir>/sitemap-0.xml"   # see path table below
+    KEY_FILE=$(find public -maxdepth 1 -regextype posix-extended -iregex '.*/[a-f0-9]{32}\.txt' | head -1)
+    KEY=$(basename "$KEY_FILE" .txt)
+    URLS=$(grep -oE '<loc>[^<]+</loc>' "$SITEMAP_PATH" | sed -E 's#</?loc>##g')
+    if [ -z "$URLS" ]; then
+      echo "No URLs found in sitemap -- skipping IndexNow ping"
+      exit 0
+    fi
+    URL_LIST_JSON=$(printf '%s\n' "$URLS" | jq -R . | jq -s .)
+    HOST=$(echo "$SITE" | sed -E 's#https?://##')
+    PAYLOAD=$(jq -n --arg host "$HOST" --arg key "$KEY" \
+      --arg keyLocation "$SITE/$KEY.txt" --argjson urlList "$URL_LIST_JSON" \
+      '{host: $host, key: $key, keyLocation: $keyLocation, urlList: $urlList}')
+    STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST https://api.indexnow.org/indexnow \
+      -H "Content-Type: application/json; charset=utf-8" -d "$PAYLOAD")
+    echo "IndexNow ping: HTTP $STATUS"
+    exit 0   # best-effort -- never fail the deploy on a notification error
 ```
+
+For sites with >10,000 URLs, split `URL_LIST_JSON` into batches of 10,000 in
+a loop -- same logic as the old script, now inline.
+
+**Vercel** -- add the same `grep`/`jq`/`curl` sequence as a post-build command in
+`vercel.json` (`"buildCommand"` chain) or a deploy hook script invoked from there
+(still no persisted `.mjs` file in the repo -- the shell block is inlined into the
+hook's command string).
+
+**Netlify** -- add the same sequence as a `run` command in a `[[plugins]]` entry's
+`onSuccess` lifecycle in `netlify.toml`, or as a post-processing command.
 
 **Framework-specific sitemap output paths:**
 
@@ -378,25 +348,213 @@ for (let i = 0; i < urls.length; i += BATCH_SIZE) {
 | Nuxt | `.output/public/sitemap.xml` |
 | React SPA | `dist/sitemap.xml` |
 
-The deploy-agent must detect the correct path based on the framework in `status.md` -> Build Configuration -> Framework.
-
-### CI/CD Integration (Phase 9 -- deploy-agent)
-
-**GitHub Actions** -- add after the deploy step:
-```yaml
-- name: Notify search engines via IndexNow
-  run: node scripts/ping-indexnow.mjs
-```
-
-**Vercel** -- add as a post-build command in `vercel.json` or a deploy hook.
-
-**Netlify** -- add as a `[[plugins]]` entry or post-processing command in `netlify.toml`.
+The deploy-agent must detect the correct path based on the framework in
+`status.md` -> Build Configuration -> Framework, and substitute it for
+`<output-dir>/sitemap-0.xml` above.
 
 ### Important Notes
 
 - **Participating engines:** Bing, Yandex, Seznam, Naver, Yep, Internet Archive, AmazonBot (7 total)
 - **Google does NOT participate** -- Google relies on accurate `lastmod` + natural crawling
-- **Max 10,000 URLs per POST** -- script handles batching
+- **Max 10,000 URLs per POST** -- batch in groups of 10,000 in the inline shell loop if exceeded (see Performance note below)
 - **Don't resubmit unchanged URLs** repeatedly -- triggers rate limiting (HTTP 429)
-- **Requires Node.js >= 18** for native `fetch` and ES modules
 - **Key file encoding:** UTF-8, contains ONLY the key string
+
+---
+
+## Section F: Git-Derived Lastmod Resolver
+
+> **Security requirement:** NEVER use `execSync` with string interpolation
+> for git commands -- always use `execFileSync` with an argument array to
+> prevent command injection via filenames.
+
+### Core Resolver Logic
+
+```js
+import { execFileSync } from 'node:child_process';
+
+function getGitDate(filePath) {
+  try {
+    const out = execFileSync(
+      'git', ['log', '-1', '--format=%aI', '--', filePath],
+      { encoding: 'utf-8' }
+    ).trim();
+    return out || null; // empty = untracked/no history
+  } catch {
+    return null; // git unavailable at build time
+  }
+}
+```
+
+### URL-to-Source-File Mapping
+
+| Page type | Source file for git date | Example | Notes |
+| --- | --- | --- | --- |
+| Content collection (blog `.md`/`.mdx`) | The content file itself | `src/content/blog/my-post.md` | Git dates are reliable -- content changes dominate |
+| Static pages (`.astro`, `.tsx`, `.vue`) | The page component file | `src/pages/about.astro` | Prefer manual `pageLastmod` map with git date as fallback |
+| Data-driven dynamic routes | The data source file (JSON/YAML/TS) | `/services/[slug]` -> `src/data/services.json` | Template file's git date as fallback if data source has no history |
+| Category/tag/pagination pages | Most recent content file in the collection | `src/content/blog/*.md` | Reflects when the collection last changed |
+| Composite pages | The primary content source file only | e.g. a homepage assembled from multiple partials -- use the hero/primary content file | Documented trade-off |
+
+### Per-Adapter Code
+
+**Astro** (`astro.config.mjs`):
+
+```js
+import { execFileSync } from 'node:child_process';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+function getGitDate(filePath) {
+  try {
+    return execFileSync('git', ['log', '-1', '--format=%aI', '--', filePath], { encoding: 'utf-8' }).trim() || null;
+  } catch { return null; }
+}
+
+function getBlogDates() {
+  const dir = './src/content/blog';
+  const dates = {};
+  try {
+    for (const file of readdirSync(dir).filter(f => f.endsWith('.md') || f.endsWith('.mdx'))) {
+      const filePath = join(dir, file);
+      const content = readFileSync(filePath, 'utf-8');
+      const slug = file.replace(/\.mdx?$/, '');
+      const frontmatterDate = content.match(/updatedDate:\s*(\d{4}-\d{2}-\d{2})/)?.[1]
+        || content.match(/publishDate:\s*(\d{4}-\d{2}-\d{2})/)?.[1] || null;
+      const gitDate = getGitDate(filePath);
+      // frontmatter overrides when newer than the git date
+      dates[`/blog/${slug}/`] = (frontmatterDate && (!gitDate || frontmatterDate > gitDate.slice(0, 10)))
+        ? frontmatterDate
+        : gitDate; // may be null -- omit lastmod for that URL
+    }
+  } catch { /* no blog content directory */ }
+  return dates;
+}
+
+// Static/component pages: manual pageLastmod map is primary, git date is fallback
+const pageLastmod = { '/': '2026-06-15' /* ...maintained manually... */ };
+function getStaticLastmod(url, sourceFile) {
+  return pageLastmod[url] || getGitDate(sourceFile) || undefined;
+}
+```
+
+**Next.js** (`next-sitemap.config.js` `transform`, and `_lastmod.json` manifest for App Router SSR):
+
+```js
+// scripts/generate-lastmod-manifest.mjs -- build-time, for app/sitemap.ts (SSR, no git at request time)
+import { execFileSync } from 'node:child_process';
+import { writeFileSync, readdirSync, readFileSync } from 'node:fs';
+
+function getGitDate(filePath) {
+  try {
+    return execFileSync('git', ['log', '-1', '--format=%aI', '--', filePath], { encoding: 'utf-8' }).trim() || null;
+  } catch { return null; }
+}
+
+const manifest = {}; // url -> ISO date | null, populated per the mapping table above
+writeFileSync('_lastmod.json', JSON.stringify(manifest, null, 2));
+```
+
+```ts
+// app/sitemap.ts
+import manifest from '../_lastmod.json';
+export default function sitemap(): MetadataRoute.Sitemap {
+  return routes.map(r => ({ url: r.url, lastModified: manifest[r.url] ?? undefined }));
+}
+```
+
+**Vue/Nuxt** (`nuxt.config.ts` `urls` function): same `getGitDate` helper, applied per blog/static URL entry before returning the array.
+
+**React SPA** (`scripts/generate-sitemap.mjs`): same `getGitDate` helper called per page before writing `dist/sitemap.xml`.
+
+### Performance
+
+For sites with 200+ pages, sequential `execFileSync` per file adds 10-40s to
+builds. Prefer a single batch call: `git log --format='%aI' --name-only`
+across the content directory in one subprocess, parsing all dates from the
+combined output instead of one `execFileSync` per file.
+
+### Build-Time-Only Requirement
+
+Git-lastmod resolution MUST happen at build time, not request time -- see
+the `_lastmod.json` manifest pattern above for Next.js SSR.
+
+---
+
+## Section G: RSS/Atom Feed Generation
+
+### Skip Condition
+
+If no blog/content collection directory exists (or it exists but is empty),
+skip feed generation entirely and log:
+`⚠ RSS feed: no blog content found — feed generation skipped, re-run after adding content`.
+
+### RSS 2.0 Required-Element Checklist
+
+Validated before writing; entries missing required fields are excluded with
+a per-entry warning. `<channel>` must have `<title>`, `<link>`,
+`<description>`; each `<item>` must have `<title>`, `<link>`, `<pubDate>`.
+
+### Per-Adapter Feed Code
+
+**Astro** (`@astrojs/rss`, `src/pages/feed.xml.js`):
+
+```js
+import rss from '@astrojs/rss';
+import { getCollection } from 'astro:content';
+
+export async function GET(context) {
+  const posts = await getCollection('blog');
+  const valid = posts.filter(p => p.data.title && p.data.pubDate);
+  return rss({
+    title: 'Site Name Blog',
+    description: 'Latest posts',
+    site: context.site,
+    items: valid.map(p => ({
+      title: p.data.title,
+      pubDate: p.data.updatedDate ?? p.data.publishDate,
+      description: p.data.description,
+      link: `/blog/${p.slug}/`,
+    })),
+  });
+}
+```
+
+**Next.js** (App Router route, `src/app/feed.xml/route.ts`):
+
+```ts
+import { NextResponse } from 'next/server';
+
+export async function GET() {
+  const posts = getBlogPosts().filter(p => p.title && p.pubDate);
+  const items = posts.map(p => `
+    <item>
+      <title>${p.title}</title>
+      <link>https://example.com/blog/${p.slug}</link>
+      <pubDate>${new Date(p.pubDate).toUTCString()}</pubDate>
+    </item>`).join('');
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+  <rss version="2.0"><channel>
+    <title>Site Name Blog</title>
+    <link>https://example.com</link>
+    <description>Latest posts</description>
+    ${items}
+  </channel></rss>`;
+  return new NextResponse(xml, { headers: { 'Content-Type': 'application/xml' } });
+}
+```
+
+**Vue/Nuxt** (`server/routes/feed.xml.ts`, or `@nuxtjs/feed` module config): same
+required-field filter, `defineEventHandler` returning the XML string with
+`Content-Type: application/xml`.
+
+**React SPA** (build-time, `scripts/generate-feed.mjs`): reads content dates via
+the Section F `getGitDate` helper, filters posts missing `title`/`pubDate`,
+writes `dist/feed.xml`; add to build command:
+`"build": "vite build && node scripts/generate-sitemap.mjs && node scripts/generate-feed.mjs"`.
+
+### IndexNow Payload Integration
+
+The feed URL (`<site>/feed.xml`) is added to the `urlList` in the Section E
+inline CI step's `URLS` variable once the feed exists — Phase 11 patches the
+CI step to append it (see `seo-indexing-agent.md`).

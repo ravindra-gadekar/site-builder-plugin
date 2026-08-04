@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**Site Builder Agents** is a Claude Code skills plugin that installs a team of 14 specialized AI agents and a master orchestrator into any client website project, handling the complete website design lifecycle from business analysis through deployment.
+**Site Builder Agents** is a Claude Code skills plugin that installs a team of 15 specialized AI agents and a master orchestrator into any client website project, handling the complete website design lifecycle from business analysis through deployment.
 
 ## Repository Structure
 
@@ -13,7 +13,7 @@ This is a mono-repo.
 ### Repos
 
 This is a mono-repo. Key directories:
-- **`agents/`** -- 14 phase-specific agent definitions (discovery, architect, designer, developer, content, audits, deploy, etc.)
+- **`agents/`** -- 15 phase-specific agent definitions (discovery, architect, designer, developer, content, audits, deploy, seo-indexing, etc.)
 - **`skills/site-builder/`** -- the installable skill: orchestrator `SKILL.md`, framework `adapters/`, and `reference/` standards
 - **`templates/`** -- scaffolding assets (animations, video handling) used by the developer agent
 - **`docs/`** -- project-level documentation (this file's supporting docs)

@@ -129,3 +129,5 @@ The `@nuxtjs/sitemap` module (included via `@nuxtjs/seo`) generates the sitemap.
 **Output:** `.output/public/sitemap.xml`
 
 **Key detail:** Nuxt's sitemap module auto-discovers routes but requires explicit `urls` entries for custom `lastmod`/`priority`/`changefreq` values.
+
+**Git-lastmod and RSS feed:** see `reference/sitemap-indexnow.md` Sections F-G (Phase 11 only — not during Phase 6 DEVELOP).

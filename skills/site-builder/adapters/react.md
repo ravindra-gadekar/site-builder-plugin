@@ -119,3 +119,5 @@ React SPAs don't have built-in sitemap generation. Create a build-time script th
 **Output:** `dist/sitemap.xml`
 
 **Key detail:** Since React SPAs are client-rendered, search engines may not discover all routes via crawling alone. A complete, accurate sitemap is especially important for React SPA projects.
+
+**Git-lastmod and RSS feed:** see `reference/sitemap-indexnow.md` Sections F-G (Phase 11 only — not during Phase 6 DEVELOP).
