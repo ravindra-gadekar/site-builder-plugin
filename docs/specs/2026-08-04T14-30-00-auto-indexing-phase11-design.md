@@ -10,7 +10,7 @@ Add a new Phase 11 (AUTO-INDEXING) to the site-builder pipeline, owned by a dedi
 
 1. **Git-derived sitemap `lastmod`** — patches each framework adapter's sitemap config to resolve per-page `lastmod` dates from git commit history (primary), with frontmatter `updatedDate`/`publishDate` overriding when newer. Uses `execFileSync('git', ['log', '-1', '--format=%aI', '--', filePath])` (argument array, no shell — immune to command injection via filenames). Omits `lastmod` entirely when neither source exists (better than a fabricated date). All resolution happens at build time; frameworks with request-time sitemap generation (e.g. Next.js SSR `app/sitemap.ts`) use a pre-built `_lastmod.json` manifest.
 
-2. **IndexNow search-engine ping** — verifies/creates the IndexNow key file (`public/<key>.txt`, committed directly), the ping script (`scripts/ping-indexnow.mjs`), and the post-deploy step in the client project's CI/CD platform (GitHub Actions, Vercel, or Netlify — detected from `status.md`). Covers Bing, Yandex, Seznam, Naver. No WebSub/PubSubHubbub Google ping (deprecated/ineffective); Google indexing relies on accurate `lastmod` + `robots.txt` sitemap reference + the existing manual GSC submission reminder from Phase 10.
+2. **IndexNow search-engine ping** — verifies/creates the IndexNow key file (`public/<key>.txt`, committed directly) and a post-deploy CI/CD step with inline shell commands (no separate script file — everything lives in the workflow YAML, matching the reference project pattern). The CI step extracts URLs from the built sitemap XML and POSTs them to `api.indexnow.org` using `curl`/`jq`. Covers Bing, Yandex, Seznam, Naver. No WebSub/PubSubHubbub Google ping (deprecated/ineffective); Google indexing relies on accurate `lastmod` + `robots.txt` sitemap reference + the existing manual GSC submission reminder from Phase 10.
 
 3. **RSS/Atom feed generation** — scaffolds a blog/content-collection feed (`feed.xml`) per adapter, reusing the same git-primary date resolver, and includes the feed URL in the IndexNow ping payload.
 
@@ -63,8 +63,8 @@ This avoids the scenario where a repo-wide formatting run sets every page's `las
 
 1. Detects current state via `.site-builder/status.md` + reads each adapter's existing sitemap config (idempotent — same detect/diff/approve pattern deploy-agent uses for CI/CD).
 2. Patches the adapter's sitemap `serialize`/`transform` function (written by developer-agent in Phase 6) to call the new git-lastmod resolver.
-3. Verifies the IndexNow key file + `scripts/ping-indexnow.mjs` + CI step exist (created in Phase 6/Phase 9); if retrofitting onto a project that predates this feature, Phase 11 creates them itself.
-4. Scaffolds the RSS/Atom feed per adapter, and extends the CI post-deploy step to include feed URLs in the IndexNow ping payload.
+3. Verifies the IndexNow key file and CI post-deploy notification step exist (created in Phase 6/Phase 9); if retrofitting onto a project that predates this feature, Phase 11 creates them itself.
+4. Scaffolds the RSS/Atom feed per adapter, and extends the inline CI post-deploy notification step to include feed URLs in the IndexNow ping payload.
 5. Verifies the sitemap is correctly referenced in `robots.txt` and confirms in its final report that the client still needs the one-time manual GSC sitemap submission (already documented by Phase 10).
 
 **Doc updates required:** README.md, CONTEXT.md, and `docs/project/architecture.md` bump "14 agents" to "15 agents" and add `seo-indexing-agent` to roster tables. `skills/site-builder/reference/phases.md` gets a Phase 11 entry with "Gate: DIFF APPROVAL — agent presents all proposed file changes for user sign-off before writing." `SKILL.md`'s phase list, dispatch table, Pipeline Complete section (moves after Phase 11), status tracking template (gains Phase 11 entry), and `pipeline_version` are bumped. Phase boundary PR schedule gains: `| 11. AUTO-INDEXING | feature/auto-indexing | feat: add git-derived lastmod, RSS feed, and IndexNow enhancements |`.
@@ -88,8 +88,8 @@ This avoids the scenario where a repo-wide formatting run sets every page's `las
 
 **Phase 9 (DEPLOY) → Phase 11:**
 
-- `scripts/ping-indexnow.mjs` and post-deploy step in the client project's CI/CD platform config. Phase 11 detects the hosting platform from `status.md` and reads the appropriate config: GitHub Actions (`.github/workflows/deploy.yml`), Vercel (`vercel.json` or `package.json` scripts), or Netlify (`netlify.toml` / `[[plugins]]`).
-- Phase 11 verifies existence; patches `ping-indexnow.mjs` to include RSS feed URLs; creates if missing (retrofit).
+- Post-deploy CI/CD notification step (inline shell commands in the workflow YAML — no separate script file). Phase 11 detects the hosting platform from `status.md` and reads the appropriate config: GitHub Actions (`.github/workflows/deploy.yml`), Vercel (`vercel.json` or `package.json` scripts), or Netlify (`netlify.toml` / `[[plugins]]`).
+- Phase 11 verifies the notification step exists and includes RSS feed URLs; creates or patches if missing (retrofit).
 
 **Phase 10 (ANALYTICS) → Phase 11:**
 
@@ -104,12 +104,12 @@ This avoids the scenario where a repo-wide formatting run sets every page's `las
    ├── Sitemap config (per adapter)
    ├── CI/CD config (GitHub Actions .yml / vercel.json / netlify.toml — per hosting platform)
    ├── IndexNow key file (public/<key>.txt)
-   ├── IndexNow ping script (scripts/ping-indexnow.mjs)
+   ├── CI/CD post-deploy notification step (inline in workflow YAML)
    └── robots.txt
          │
 3. DETECT what's already configured vs. missing:
    ├── Git-lastmod resolver present in sitemap config? → skip / patch
-   ├── IndexNow key + ping script + CI step? → skip / create
+   ├── IndexNow key + CI notification step? → skip / create
    ├── RSS/Atom feed route/script? → skip / scaffold
    └── Feed URL in robots.txt? → skip / add
          │
@@ -122,7 +122,7 @@ This avoids the scenario where a repo-wide formatting run sets every page's `las
    │   ├── Next.js: src/app/feed.xml/route.ts or pages/api/feed.ts
    │   ├── Vue/Nuxt: server/routes/feed.xml.ts or nuxt.config.ts feed module
    │   └── React SPA: scripts/generate-feed.mjs (build-time)
-   ├── Patch scripts/ping-indexnow.mjs to include feed URL
+   ├── Patch CI notification step to include feed URL in IndexNow payload
    ├── Patch robots.txt to add Sitemap: + feed reference if missing
    └── Create missing IndexNow files if retrofit
          │
@@ -251,7 +251,7 @@ All changes are in `site-builder-plugin` (mono-repo).
 | Scenario | Behavior |
 | --- | --- |
 | Re-run on already-configured project | Detects existing components via `status.md` + file reads. Reports "already configured" per piece. Only diffs for missing/outdated pieces. |
-| Run on project that skipped Phase 6/9 | Retrofit mode — creates IndexNow key, ping script, CI step from scratch. |
+| Run on project that skipped Phase 6/9 | Retrofit mode — creates IndexNow key, CI notification step from scratch. |
 | Existing CI has custom post-deploy steps | Appends IndexNow step after existing steps, never reorders/removes. Diff-approval gate before writing. |
 
 ### User-facing error format
@@ -319,10 +319,10 @@ Failures block Phase 11 completion — the agent offers to fix each issue before
 - [ ] Phase 11 is CI platform-aware: detects hosting platform from `status.md` and reads/writes the appropriate config (GitHub Actions `.github/workflows/deploy.yml`, Vercel `vercel.json` / `package.json` scripts, Netlify `netlify.toml`). Verification checks are platform-specific.
 - [ ] For GitHub Actions: Phase 11 detects shallow clones (`fetch-depth: 1` or default) and patches to `fetch-depth: 0` with `filter: blob:none` (treeless clone — full history for accurate dates without downloading all blobs) via diff-approval gate
 - [ ] IndexNow key file committed directly to `public/<key>.txt` (not from CI secrets)
-- [ ] `scripts/ping-indexnow.mjs` patched to include RSS feed URL in IndexNow `urlList` payload
+- [ ] IndexNow notification is handled entirely inline in the CI/CD workflow YAML (no separate `scripts/ping-indexnow.mjs` file). CI step extracts URLs from built sitemap XML using `grep`/`jq`, includes RSS feed URL, and POSTs to `api.indexnow.org` using `curl`. Pattern matches the reference project's inline approach.
 - [ ] No WebSub/PubSubHubbub ping step generated — Google relies on accurate `lastmod` + `robots.txt` sitemap reference + existing manual GSC submission reminder from Phase 10
 - [ ] Phase 11 fully idempotent: re-run detects already-configured components via `status.md` + file reads, only presents diffs for missing/outdated pieces, never duplicates existing CI steps or feed routes
-- [ ] Phase 11 works in retrofit mode: creates IndexNow key, ping script, CI step, and feed from scratch if Phase 6/9 output is missing
+- [ ] Phase 11 works in retrofit mode: creates IndexNow key, CI notification step, and feed from scratch if Phase 6/9 output is missing
 - [ ] RSS feed generation skipped with clear warning when no blog/content collection exists
 - [ ] Feed XML validated against RSS 2.0 required elements before writing; entries missing required fields excluded with per-entry warning
 - [ ] Post-deploy verification checks documented: live sitemap lastmod accuracy (no uniform-date pattern), feed accessibility (`/feed.xml` returns valid XML), IndexNow key accessibility, CI platform-specific post-deploy step presence
