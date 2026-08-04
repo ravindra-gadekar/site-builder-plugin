@@ -1,6 +1,6 @@
 # Site Builder Agents
 
-A Claude Code skills plugin that installs a team of 14 specialized AI agents and a master orchestrator into any client website project. Handles the complete website design lifecycle — from business analysis through deployment.
+A Claude Code skills plugin that installs a team of 15 specialized AI agents and a master orchestrator into any client website project. Handles the complete website design lifecycle — from business analysis through deployment.
 
 Developed by Ravindra Gadekar.
 
@@ -67,24 +67,25 @@ The orchestrator detects both the **default branch** (GitHub base) and the **CI/
 
 ## What It Does
 
-### 10-Phase Pipeline
+### 11-Phase Pipeline
 
 ```
-Phase 1: DISCOVER    → Business analysis, competitor research, codebase inventory, document extraction
-Phase 2: ARCHITECT   → Tech stack confirmation, site map, URL structure, components
-Phase 3: PREPARE     → Clean old files, scaffold new project, set up .gitignore
-Phase 4: DESIGN      → Visual identity, design tokens, wireframes, anti-AI-look validation
-Phase 5: CONTENT     → Page copy, meta tags, image planning (real assets first)
-Phase 6: DEVELOP     → Working website code (chunked: pages → SEO → performance → analytics scaffolding)
-Phase 7: AUDIT       → 6 parallel quality checks with fix loop (max 3 cycles)
-Phase 8: INTEGRATE   → Social media setup (all optional/skippable)
-Phase 9: DEPLOY      → Hosting-agnostic CI/CD pipeline + staging deployment
-Phase 10: ANALYTICS  → Real credentials injected, tracking verified on the live URL
+Phase 1: DISCOVER       → Business analysis, competitor research, codebase inventory, document extraction
+Phase 2: ARCHITECT      → Tech stack confirmation, site map, URL structure, components
+Phase 3: PREPARE        → Clean old files, scaffold new project, set up .gitignore
+Phase 4: DESIGN         → Visual identity, design tokens, wireframes, anti-AI-look validation
+Phase 5: CONTENT        → Page copy, meta tags, image planning (real assets first)
+Phase 6: DEVELOP        → Working website code (chunked: pages → SEO → performance → analytics scaffolding)
+Phase 7: AUDIT          → 6 parallel quality checks with fix loop (max 3 cycles)
+Phase 8: INTEGRATE      → Social media setup (all optional/skippable)
+Phase 9: DEPLOY         → Hosting-agnostic CI/CD pipeline + staging deployment
+Phase 10: ANALYTICS     → Real credentials injected, tracking verified on the live URL
+Phase 11: AUTO-INDEXING → Git-derived sitemap lastmod, inline IndexNow CI notification, RSS/Atom feed
 ```
 
 ### Approval Gates
 
-5 user approval gates (Discover, Architect, Design, Deploy, Analytics) and 1 quality gate (all 6 audits must pass).
+6 user approval gates (Discover, Architect, Design, Deploy, Analytics, Auto-Indexing) and 1 quality gate (all 6 audits must pass).
 
 ### Document Parsing & Image Extraction
 
@@ -114,7 +115,7 @@ Re-run `/site-builder` on a completed project to make changes. The orchestrator 
 
 When migrating to a new framework, the Phase 3 PREPARE phase handles cleanup and scaffolding. Working on `local-dev` (with phase-boundary PRs, never a direct push) keeps original code safe on the production branch. Reference old files via `git show` during migration. If it fails, the orchestrator can discard the unpushed `local-dev` commits and start fresh — production is untouched either way.
 
-## 14 Agents
+## 15 Agents
 
 ### Build Team
 | # | Agent | Model | Role |
@@ -141,6 +142,11 @@ When migrating to a new framework, the Phase 3 PREPARE phase handles cleanup and
 | 12 | social-integration-agent | Sonnet | Social profile linking, share buttons, OG meta |
 | 13 | analytics-agent | Sonnet | GA4, GSC, Bing Webmaster, tracking events, consent |
 | 14 | deploy-agent | Sonnet | CI/CD pipeline, staging deploy, rollback plan |
+
+### Indexing
+| # | Agent | Model | Role |
+|---|-------|-------|------|
+| 15 | seo-indexing-agent | Sonnet | Git-derived sitemap lastmod, inline IndexNow CI notification, RSS/Atom feed |
 
 ## Framework Support
 
@@ -210,7 +216,7 @@ If `DEPLOY_BRANCH` differs from `DEFAULT_BRANCH`, the orchestrator periodically 
 
 ```
 site-builder-plugin/
-├── agents/                          # 14 specialist agents
+├── agents/                          # 15 specialist agents
 │   ├── discovery-agent.md
 │   ├── architect-agent.md
 │   ├── designer-agent.md
@@ -224,7 +230,8 @@ site-builder-plugin/
 │   ├── accessibility-audit-agent.md
 │   ├── social-integration-agent.md
 │   ├── analytics-agent.md
-│   └── deploy-agent.md
+│   ├── deploy-agent.md
+│   └── seo-indexing-agent.md
 └── skills/
     └── site-builder/
         ├── SKILL.md                 # Master orchestrator
