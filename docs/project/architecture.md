@@ -2,7 +2,7 @@
 
 ## System Overview
 
-Site Builder Agents is a Claude Code skills plugin, not a running application. It installs a master orchestrator (`/site-builder`) and 14 specialized agents into a client website project. The orchestrator inspects the client project's current state and dispatches the right agent for the next phase of the website build lifecycle — business analysis, design, content, development, audits, and deployment.
+Site Builder Agents is a Claude Code skills plugin, not a running application. It installs a master orchestrator (`/site-builder`) and 15 specialized agents into a client website project. The orchestrator inspects the client project's current state and dispatches the right agent for the next phase of the website build lifecycle — business analysis, design, content, development, audits, and deployment.
 
 ### Service Map
 
