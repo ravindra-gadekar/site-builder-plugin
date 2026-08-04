@@ -295,79 +295,46 @@ Add to `package.json`:
 
 **Update mode:** Never regenerate a key if one already exists. Regenerating would break existing IndexNow verification with search engines and leave the old key file orphaned.
 
-### Ping Script (Phase 9 -- deploy-agent)
+### Inline CI Notification (Phase 9 -- deploy-agent)
 
-Create `scripts/ping-indexnow.mjs`:
+No separate script file is created. The post-deploy notification step lives
+entirely inline in the CI/CD workflow config, using `grep`/`jq`/`curl`.
 
-```js
-#!/usr/bin/env node
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+**GitHub Actions** -- add after the deploy step in `.github/workflows/deploy.yml`:
 
-const SITE = 'https://<site-domain>';
-const KEY = '<generated-key>';
-const SITEMAP_PATH = resolve('<output-dir>/sitemap-0.xml'); // see table below
-
-// Handle both single sitemap and sitemap index files
-let urls = [];
-const xml = readFileSync(SITEMAP_PATH, 'utf-8');
-if (xml.includes('<sitemapindex')) {
-  // Sitemap index — read each referenced sitemap file
-  const sitemapLocs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
-  for (const loc of sitemapLocs) {
-    const filename = loc.split('/').pop();
-    const filepath = resolve(SITEMAP_PATH, '..', filename);
-    try {
-      const sub = readFileSync(filepath, 'utf-8');
-      urls.push(...[...sub.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]));
-    } catch { /* sitemap file not found locally */ }
-  }
-} else {
-  urls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
-}
-
-if (urls.length === 0) {
-  console.log('No URLs found in sitemap — skipping IndexNow ping');
-  process.exit(0);
-}
-
-console.log(`Found ${urls.length} URLs in sitemap`);
-
-// IndexNow batch limit: 10,000 URLs per request
-const BATCH_SIZE = 10000;
-for (let i = 0; i < urls.length; i += BATCH_SIZE) {
-  const batch = urls.slice(i, i + BATCH_SIZE);
-  const payload = {
-    host: new URL(SITE).hostname,
-    key: KEY,
-    keyLocation: `${SITE}/${KEY}.txt`,
-    urlList: batch,
-  };
-
-  try {
-    const res = await fetch('https://api.indexnow.org/indexnow', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      body: JSON.stringify(payload),
-    });
-    console.log(`IndexNow batch ${Math.floor(i / BATCH_SIZE) + 1}: ${res.status} ${res.statusText}`);
-    if (res.status === 429) {
-      console.warn('Rate limited — reduce submission frequency');
-    }
-  } catch (err) {
-    console.error('IndexNow failed:', err.message);
-  }
-}
-
-// NOTE: This script submits ALL sitemap URLs on every deploy. For small sites
-// (< 100 pages) with infrequent deploys, this is fine. If rate limiting (429)
-// becomes an issue, add change detection: diff the current sitemap against a
-// cached copy from the previous deploy and submit only changed/new URLs.
-
-// Google does not participate in IndexNow.
-// Google discovery relies on accurate lastmod dates + natural crawling.
-// Google deprecated its sitemap ping endpoint in June 2023.
+```yaml
+- name: Notify search engines via IndexNow
+  run: |
+    SITE="https://<site-domain>"
+    SITEMAP_PATH="<output-dir>/sitemap-0.xml"   # see path table below
+    KEY_FILE=$(find public -maxdepth 1 -regextype posix-extended -iregex '.*/[a-f0-9]{32}\.txt' | head -1)
+    KEY=$(basename "$KEY_FILE" .txt)
+    URLS=$(grep -oE '<loc>[^<]+</loc>' "$SITEMAP_PATH" | sed -E 's#</?loc>##g')
+    if [ -z "$URLS" ]; then
+      echo "No URLs found in sitemap -- skipping IndexNow ping"
+      exit 0
+    fi
+    URL_LIST_JSON=$(printf '%s\n' "$URLS" | jq -R . | jq -s .)
+    HOST=$(echo "$SITE" | sed -E 's#https?://##')
+    PAYLOAD=$(jq -n --arg host "$HOST" --arg key "$KEY" \
+      --arg keyLocation "$SITE/$KEY.txt" --argjson urlList "$URL_LIST_JSON" \
+      '{host: $host, key: $key, keyLocation: $keyLocation, urlList: $urlList}')
+    STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST https://api.indexnow.org/indexnow \
+      -H "Content-Type: application/json; charset=utf-8" -d "$PAYLOAD")
+    echo "IndexNow ping: HTTP $STATUS"
+    exit 0   # best-effort -- never fail the deploy on a notification error
 ```
+
+For sites with >10,000 URLs, split `URL_LIST_JSON` into batches of 10,000 in
+a loop -- same logic as the old script, now inline.
+
+**Vercel** -- add the same `grep`/`jq`/`curl` sequence as a post-build command in
+`vercel.json` (`"buildCommand"` chain) or a deploy hook script invoked from there
+(still no persisted `.mjs` file in the repo -- the shell block is inlined into the
+hook's command string).
+
+**Netlify** -- add the same sequence as a `run` command in a `[[plugins]]` entry's
+`onSuccess` lifecycle in `netlify.toml`, or as a post-processing command.
 
 **Framework-specific sitemap output paths:**
 
@@ -378,25 +345,14 @@ for (let i = 0; i < urls.length; i += BATCH_SIZE) {
 | Nuxt | `.output/public/sitemap.xml` |
 | React SPA | `dist/sitemap.xml` |
 
-The deploy-agent must detect the correct path based on the framework in `status.md` -> Build Configuration -> Framework.
-
-### CI/CD Integration (Phase 9 -- deploy-agent)
-
-**GitHub Actions** -- add after the deploy step:
-```yaml
-- name: Notify search engines via IndexNow
-  run: node scripts/ping-indexnow.mjs
-```
-
-**Vercel** -- add as a post-build command in `vercel.json` or a deploy hook.
-
-**Netlify** -- add as a `[[plugins]]` entry or post-processing command in `netlify.toml`.
+The deploy-agent must detect the correct path based on the framework in
+`status.md` -> Build Configuration -> Framework, and substitute it for
+`<output-dir>/sitemap-0.xml` above.
 
 ### Important Notes
 
 - **Participating engines:** Bing, Yandex, Seznam, Naver, Yep, Internet Archive, AmazonBot (7 total)
 - **Google does NOT participate** -- Google relies on accurate `lastmod` + natural crawling
-- **Max 10,000 URLs per POST** -- script handles batching
+- **Max 10,000 URLs per POST** -- batch in groups of 10,000 in the inline shell loop if exceeded (see Performance note below)
 - **Don't resubmit unchanged URLs** repeatedly -- triggers rate limiting (HTTP 429)
-- **Requires Node.js >= 18** for native `fetch` and ES modules
 - **Key file encoding:** UTF-8, contains ONLY the key string
