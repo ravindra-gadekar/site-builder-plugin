@@ -8,7 +8,7 @@
 
 The site-builder plugin generates `CONTEXT.md`, `ARCHITECTURE.md`, and `CLAUDE.md` during `--init` and is supposed to keep them current as phases complete. In practice, the refresh mechanism is unreliable — it relies on prose footnotes in SKILL.md that get dropped under context pressure — and `BRAND.md` is entirely missing from the site-builder pipeline despite Phase 4 DESIGN producing a full design system. Additionally, Update Mode (post-completion add/remove/update requests) has zero doc-refresh step, so docs go stale the moment the user starts iterating after handoff.
 
-This spec redesigns the two-layer doc-refresh system into a hybrid: a deterministic pre-commit script for mechanical facts (directory trees, dependency tables, design tokens, agent/phase counts) and an agent-indexed checklist gate for judgment content (domain model, conventions, architecture rationale). It also adds BRAND.md as a first-class managed document and inserts a hard doc-refresh gate into Update Mode.
+This spec redesigns the two-layer doc-refresh system into a hybrid: a deterministic pre-commit script for mechanical facts (directory trees, dependency tables, design tokens) and an agent-indexed checklist gate for judgment content (domain model, conventions, architecture rationale). It also adds BRAND.md as a first-class managed document and inserts a hard doc-refresh gate into Update Mode.
 
 ## Architecture
 
@@ -30,8 +30,8 @@ Replace phase-indexed "Doc refresh:" footnotes with an **agent-indexed mapping**
 |---|---|---|
 | discovery-agent | `CONTEXT.md` | Entities, Glossary, Data Flow |
 | architect-agent | `CONTEXT.md`, `CLAUDE.md` | Conventions, Decisions; Tech Stack |
-| developer-agent | `ARCHITECTURE.md`, `BRAND.md` | Directory Structure, Patterns, Entry Points, Dependencies; all tokens |
-| designer-agent | `BRAND.md` | All sections (colors, typography, spacing, component patterns) |
+| developer-agent | `ARCHITECTURE.md`, `CLAUDE.md`, `BRAND.md` | Directory Structure, Patterns, Entry Points, Dependencies; Build & Dev commands (CLAUDE.md marker block); verify BRAND.md tokens match design-system.md (Phase 6 only — not Phase 3, when design-system.md does not yet exist) |
+| designer-agent | `BRAND.md` (primary owner) | All sections (colors, typography, spacing, component patterns). Designer-agent is the primary author; developer-agent is secondary/verify-only. |
 | content-agent | `CONTEXT.md` | Glossary (new terms from content) |
 | deploy-agent | `CLAUDE.md` | Deployment target, CI/CD |
 | analytics-agent | `CLAUDE.md` | Analytics config reference |
@@ -51,13 +51,20 @@ A POSIX `sh` script replaces the staging-only hook. It handles **mechanical-fact
 
 | Doc | Sections handled by script | Source |
 |---|---|---|
-| `ARCHITECTURE.md` | Directory Structure, Dependencies, Build & Dev | `find`, `package.json` |
-| `BRAND.md` | Color tokens, Font stack, Spacing scale | `.site-builder/design-system.md` (grep for token blocks) |
-| `CLAUDE.md` | Agent count, Phase count (inside marker block) | `ls agents/` count, `phases.md` grep |
+| `ARCHITECTURE.md` | Directory Structure, Dependencies, Build & Dev | `find` (depth-2, excluding node_modules/.git/gitignored), `package.json` |
+| `BRAND.md` | Color tokens, Font stack, Spacing scale | `.site-builder/design-system.md` (grep for token blocks; skipped if file absent — e.g. before Phase 4) |
+
+Agent/phase counts in `CLAUDE.md` are NOT script-managed — they are static values set at plugin-install time (the `agents/` directory and `phases.md` live in the plugin repo, not the client project). CLAUDE.md's Build & Dev commands are refreshed by the developer-agent gate (Layer 1), not the script.
 
 The script runs at pre-commit time. It reads the source files, extracts the mechanical values, and patches only those sections using `<!-- auto:section-name -->` / `<!-- /auto:section-name -->` markers within each doc. Judgment sections are left untouched.
 
 **Section ownership boundary:** Each auto-managed section is wrapped in its own `<!-- auto:* -->` markers. The script only writes inside these markers. The Layer 1 gate only writes outside them. Neither touches the other's territory.
+
+**Nested marker rule for CLAUDE.md:** Auto-markers can appear inside the `<!-- site-builder:start -->` / `<!-- site-builder:end -->` block. The existing doc-templates.md Marker Block Rule ("replace everything between the site-builder markers") must be amended: when replacing site-builder marker block content, the orchestrator must **preserve nested `<!-- auto:* -->` blocks and their content**. The orchestrator replaces only the text outside auto-markers within the site-builder block.
+
+**Intra-phase reminder (PostToolUse hook):** The existing PostToolUse hook (`echo 'Docs may be stale...'`) is retained as an intra-phase nudge — it fires during agent work, while the gate fires at phase boundaries. Different scope, both useful. Changes: (1) update the echo message to mention BRAND.md alongside ARCHITECTURE.md and CONTEXT.md; (2) rename from "Layer 1" to "Intra-phase reminder" in SKILL.md Section 2.6 and doc-refresh.md to avoid label conflict with the gate's "Layer 1" designation.
+
+**Audit agents excluded by design:** The 6 audit agents (seo-audit, technical-audit, content-quality, ai-search, schema-audit, accessibility-audit) are absent from the mapping intentionally — they are read-only analyzers whose findings are acted on by content-agent and developer-agent, which ARE in the mapping. Do not add doc-gate obligations to audit agents during implementation.
 
 ### BRAND.md: New managed doc
 
@@ -69,13 +76,13 @@ The script runs at pre-commit time. It reads the source files, extracts the mech
 
 ### Update Mode: Hard doc-refresh gate
 
-Update Mode's current 4-step flow becomes 5 steps:
+Insert a new **Doc Refresh Gate** step into the existing Update Mode flow (defined in SKILL.md lines 818-844), between the re-audit step and deploy. The spec does not redefine or renumber the existing steps — it adds one:
 
-1. Ask user what needs changing
-2. Map requested changes to minimum set of agents
-3. Run only those agents + audit loop for changed areas
-4. **Doc Refresh Gate (new):** For each agent that ran in step 3, verify its docs per the agent-indexed mapping. Block deploy until verified.
-5. Deploy through existing CI/CD pipeline
+- Existing steps (unchanged): design re-validation → ask what needs changing → map to agents → run agents → re-audit changed areas
+- **New step after re-audit:** Doc Refresh Gate — for each agent that ran, verify its docs per the agent-indexed mapping. Block deploy until verified.
+- Existing final step (unchanged): deploy through existing CI/CD pipeline
+
+The `phases.md` Update Mode section should mirror this insertion rather than restating a simplified flow.
 
 ## Data Flow
 
@@ -102,7 +109,6 @@ Layer 2 Pre-commit script fires:
     ├── Read .site-builder/design-system.md → extract tokens → patch BRAND.md auto markers
     ├── Run find on project tree → patch ARCHITECTURE.md directory structure markers
     ├── Read package.json → patch ARCHITECTURE.md dependencies markers
-    ├── Count agents/*.md → patch CLAUDE.md agent count markers
     └── git add all patched docs
     ↓
 Commit includes both code changes AND fresh docs
@@ -117,7 +123,9 @@ Orchestrator selects minimum agent set
     ↓
 Selected agents run, write to .site-builder/ and source files
     ↓
-Orchestrator hits Doc Refresh Gate (step 4):
+Re-audit changed areas (existing step)
+    ↓
+Orchestrator hits Doc Refresh Gate (new step):
     ├── For EACH agent that ran:
     │   ├── Look up agent in agent→doc mapping
     │   ├── Read mapped docs + agent's .site-builder/ output
@@ -129,7 +137,7 @@ User commits
     ↓
 Layer 2 pre-commit script patches mechanical sections
     ↓
-Deploy proceeds (step 5)
+Deploy proceeds (existing final step)
 ```
 
 ### Conflict prevention between layers
@@ -150,6 +158,8 @@ src/
 ```
 
 Layer 2 script uses sed/awk to find markers, replace content between them, leave everything else untouched. Layer 1 (orchestrator/agent) never modifies content inside auto markers.
+
+**Windows CRLF handling:** The script must preprocess input with `tr -d '\r'` before sed/awk pattern matching. Windows Git Bash provides POSIX tools but project files commonly have CRLF line endings. Without stripping `\r`, sed patterns matching end-of-line will fail silently, producing corrupt output or no-op patches. The script template must include this preprocessing, and the testing strategy must include a Windows-specific CRLF test case.
 
 ### Staleness windows
 
@@ -175,8 +185,8 @@ Layer 2 script uses sed/awk to find markers, replace content between them, leave
 |---|---|
 | `skills/site-builder/reference/doc-refresh.md` | Rewrite both layers: Layer 1 → agent-indexed gate; Layer 2 → mechanical-facts script with auto-markers. Add BRAND.md. Add section-ownership boundary rules. |
 | `skills/site-builder/reference/doc-templates.md` | Add BRAND.md template pointer. Add `<!-- auto:* -->` marker specs to template sections. Update CLAUDE.md template Architecture Reference to include BRAND.md. |
-| `skills/site-builder/reference/phases.md` | Expand Update Mode from 4 to 5 steps (add Doc Refresh Gate as step 4). Add agent→doc mapping table as reference. |
-| `skills/site-builder/SKILL.md` | Init 2.5: add BRAND.md creation + expanded pre-commit hook. All phase sections: replace "Doc refresh:" footnotes with "Doc Gate:" checklist items. Phases 4, 5, 8, 10, 11: add missing doc-gate entries. Update Mode: reference 5-step flow. |
+| `skills/site-builder/reference/phases.md` | Insert Doc Refresh Gate step into Update Mode (between re-audit and deploy). Add agent→doc mapping table as reference. |
+| `skills/site-builder/SKILL.md` | Init 2.5: add BRAND.md creation + expanded pre-commit hook. Section 2.6: update PostToolUse hook echo to mention BRAND.md, rename "Layer 1" label to "Intra-phase reminder". All phase sections: replace "Doc refresh:" footnotes with "Doc Gate:" checklist items. Phases 4, 5, 8, 10, 11: add missing doc-gate entries. Update Mode: insert Doc Refresh Gate step. Amend CLAUDE.md Marker Block Rules: preserve nested auto-markers during site-builder block replacement. |
 | `skills/site-builder/reference/handoff-checklist.md` | Add BRAND.md and "all auto-marker sections populated" to verification list. |
 | `agents/designer-agent.md` | Add doc-gate obligation for BRAND.md (all sections). |
 | `agents/developer-agent.md` | Add doc-gate obligation for BRAND.md alongside ARCHITECTURE.md. Remove stale `refresh-architecture.mjs` reference. |
@@ -256,19 +266,23 @@ Since this repo is Markdown-only (no runtime, no test framework), testing is str
 - [ ] `reference/doc-refresh.md` contains an agent-indexed mapping table (agent → docs → sections) replacing the old phase-indexed table
 - [ ] `reference/doc-refresh.md` Layer 1 describes the checklist gate pattern: orchestrator must name what specifically changed before proceeding
 - [ ] `reference/doc-refresh.md` Layer 2 describes the mechanical-facts pre-commit script with `<!-- auto:* -->` marker ownership rules
-- [ ] `reference/doc-refresh-script.sh` exists as a POSIX sh script template that patches mechanical sections (directory tree, dependencies, build commands, brand tokens, agent/phase counts) at commit time
+- [ ] `reference/doc-refresh-script.sh` exists as a POSIX sh script template that patches mechanical sections (directory tree, dependencies, build commands, brand tokens) at commit time — does NOT patch agent/phase counts (those are plugin-repo values, not client-project values)
 - [ ] `reference/doc-refresh-script.sh` exits 0 on all error paths (missing files, parse failures, missing markers)
+- [ ] `reference/doc-refresh-script.sh` preprocesses input with `tr -d '\r'` for Windows CRLF compatibility
 - [ ] `SKILL.md` phase sections for all 11 phases have "Doc Gate:" checklist items instead of "Doc refresh:" footnotes
 - [ ] Phases 4, 5, 8, 10, 11 — which previously had no doc-refresh step — now have doc-gate entries matching the agent-indexed mapping
-- [ ] `reference/phases.md` Update Mode is 5 steps, with step 4 being a hard Doc Refresh Gate that blocks deploy until verified
-- [ ] `reference/doc-templates.md` adds `<!-- auto:* -->` markers to the mechanical sections of CONTEXT.md, ARCHITECTURE.md, CLAUDE.md, and BRAND.md templates
-- [ ] `reference/doc-templates.md` CLAUDE.md template includes BRAND.md in the Architecture Reference lookup order
-- [ ] `agents/designer-agent.md` has doc-gate obligation for BRAND.md (all sections)
-- [ ] `agents/developer-agent.md` has doc-gate obligation for BRAND.md alongside ARCHITECTURE.md
+- [ ] `reference/phases.md` Update Mode has Doc Refresh Gate step inserted between re-audit and deploy
+- [ ] `reference/doc-templates.md` adds `<!-- auto:* -->` markers to the mechanical sections of ARCHITECTURE.md, CLAUDE.md, and BRAND.md templates (NOT CONTEXT.md — it has no mechanical sections)
+- [ ] `reference/doc-templates.md` CLAUDE.md Marker Block Rules amended: preserve nested `<!-- auto:* -->` blocks during site-builder marker block replacement
+- [ ] `reference/doc-templates.md` CLAUDE.md template includes BRAND.md in the Architecture Reference lookup order (between ARCHITECTURE.md and project-brief.md)
+- [ ] `SKILL.md` Section 2.6 PostToolUse hook echo updated to mention BRAND.md; label renamed from "Layer 1" to "Intra-phase reminder"
+- [ ] `agents/designer-agent.md` has doc-gate obligation for BRAND.md (primary owner, all sections)
+- [ ] `agents/developer-agent.md` has doc-gate obligation for BRAND.md (secondary/verify-only), ARCHITECTURE.md, and CLAUDE.md (Build & Dev commands)
 - [ ] `agents/content-agent.md` has doc-gate obligation for CONTEXT.md Glossary
 - [ ] `agents/analytics-agent.md` has doc-gate obligation for CLAUDE.md marker block
 - [ ] `agents/seo-indexing-agent.md` has doc-gate obligation for CLAUDE.md marker block
 - [ ] `agents/social-integration-agent.md` has doc-gate obligation for ARCHITECTURE.md integrations
 - [ ] `reference/handoff-checklist.md` includes BRAND.md and "all auto-marker sections populated" verification
-- [ ] Pre-commit script template is POSIX-compliant (no bashisms)
+- [ ] Pre-commit script template is POSIX-compliant (no bashisms) and Windows CRLF-safe
 - [ ] Section ownership boundary is clean: script only writes inside `<!-- auto:* -->` markers, orchestrator/agents only write outside them
+- [ ] Audit agents (6 total) explicitly excluded from agent→doc mapping — they are read-only and do not refresh docs
