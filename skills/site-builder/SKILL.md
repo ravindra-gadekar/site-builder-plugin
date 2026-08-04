@@ -765,6 +765,7 @@ locally on `local-dev`, continue working — no push yet.
 | 8. INTEGRATE | `feature/social-integration` | `feat: add social media integration` |
 | 9. DEPLOY | `feature/deployment` | `feat: add CI/CD pipeline and deployment config` |
 | 10. ANALYTICS | `feature/analytics-credentials` | `feat: connect analytics credentials and verify tracking` |
+| 11. AUTO-INDEXING | `feature/auto-indexing` | `feat: add git-derived lastmod, RSS feed, and IndexNow enhancements` |
 
 **At each phase boundary, re-check for remote:** run `git remote`. If a
 remote was added since the last check, log detection, run the empty-repo
@@ -1262,6 +1263,7 @@ After every phase transition AND every sub-task completion, update `.site-builde
 - Phase 8 INTEGRATE: [pending|in_progress|completed] ([date])
 - Phase 9 DEPLOY: [pending|in_progress|completed] ([date])
 - Phase 10 ANALYTICS: [pending|in_progress|completed] ([date])
+- Phase 11 AUTO-INDEXING: [pending|in_progress|completed] ([date])
 
 ## Current State
 
@@ -1272,7 +1274,7 @@ After every phase transition AND every sub-task completion, update `.site-builde
 
 ## Build Configuration
 
-- Pipeline version: 3
+- Pipeline version: 4
 - Init: [complete|pending]
 - Framework: [astro|nextjs|vue|react]
 - Mode: [demo|prod]
@@ -1303,7 +1305,7 @@ After every phase transition AND every sub-task completion, update `.site-builde
 
 - [ ] Hosting platform chosen
 - [ ] CI/CD pipeline setup
-- [ ] IndexNow ping script created and added to CI/CD post-deploy step
+- [ ] IndexNow inline CI notification step added (no separate script file)
 - [ ] Deployment config and environment variables
 - [ ] Sitemap verification (old vs new URLs)
 - [ ] Test deployment
@@ -1314,6 +1316,15 @@ After every phase transition AND every sub-task completion, update `.site-builde
 - [ ] Credentials injected into environment configuration
 - [ ] Tracking verified firing on live deployed URL
 
+## Phase 11 Progress (AUTO-INDEXING)
+
+- [ ] Git-lastmod resolver patched into sitemap config
+- [ ] IndexNow key file verified/created
+- [ ] IndexNow inline CI notification step verified/created
+- [ ] RSS/Atom feed scaffolded (or explicitly skipped — no content)
+- [ ] robots.txt references sitemap + feed
+- [ ] GitHub Actions fetch-depth: 0 confirmed (GitHub Actions only)
+
 ## Agent Outputs
 
 - project-brief.md: [pending|written]
@@ -1323,6 +1334,7 @@ After every phase transition AND every sub-task completion, update `.site-builde
 - content/: [pending|written] ([N] files)
 - audit-reports/: [pending|written]
 - integration-reports/: [pending|written]
+- seo-indexing.md: [pending|written]
 
 ## Token Usage Log
 
@@ -1388,7 +1400,10 @@ To handle session resume across plugin updates (e.g., 8-phase → 9-phase → 10
 
 - `pipeline_version: 1` — original 8-phase pipeline (no PREPARE phase)
 - `pipeline_version: 2` — 9-phase pipeline (added PREPARE, removed since v3)
-- `pipeline_version: 3` — current 10-phase pipeline (demo/prod only, hosting-agnostic deploy, Phase 10 ANALYTICS)
+- `pipeline_version: 3` — 10-phase pipeline (superseded by v4, retained for resume compatibility)
+- `pipeline_version: 4` — current 11-phase pipeline (adds Phase 11
+  AUTO-INDEXING: git-derived lastmod, inline IndexNow CI notification,
+  RSS/Atom feed).
 
 **Resume rules for v1 → v2 transition:**
 
@@ -1420,6 +1435,26 @@ To handle session resume across plugin updates (e.g., 8-phase → 9-phase → 10
     label. Warn the user once: "This build was started in the retired
     `stage` mode. Continuing as `demo` mode — behavior is unchanged."
 - Update `pipeline_version` to `3` in `status.md` as part of either
+  transition above.
+
+**Resume rules for v3 → v4 transition:**
+
+- If `status.md` has `pipeline_version: 3` and Phases 1-10 are all
+  `completed`:
+  - Treat this as a completed v3 build. Offer: "This build finished
+    under the previous 10-phase pipeline. Run the new Phase 11
+    AUTO-INDEXING as an optional upgrade? It configures git-derived
+    sitemap dates, IndexNow notification, and an RSS feed." On accept,
+    add `Phase 11 AUTO-INDEXING: in-progress` to `status.md`, bump
+    `pipeline_version` to `4`, and dispatch `seo-indexing-agent` as
+    described in Phase 11 above. On decline, leave Phase 11 unset — do
+    not silently mark it completed or skipped.
+- If `status.md` has `pipeline_version: 3` and phases are mid-run:
+  - Add `Phase 11 AUTO-INDEXING: pending` to `status.md`, bump
+    `pipeline_version` to `4`. Continue resuming from the last
+    incomplete phase as usual — Phase 11 becomes reachable once Phase
+    10 completes.
+- Update `pipeline_version` to `4` in `status.md` as part of either
   transition above.
 
 ## Agent Spawning Pattern
