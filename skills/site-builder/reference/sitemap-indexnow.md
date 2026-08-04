@@ -18,6 +18,9 @@ Google uses `lastmod` only when it is "consistently and verifiably accurate." Un
 
 **What counts as a meaningful edit:** Changes to main content, structured data, or links. NOT: copyright year updates, CSS changes, dependency bumps, build config tweaks.
 
+> **Phase 11 override:** `seo-indexing-agent` overrides these per-page dates
+> with git-derived resolution — see Section F.
+
 ---
 
 ## Section B: Priority Table
