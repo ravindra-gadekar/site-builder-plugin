@@ -1,6 +1,6 @@
 # Pipeline Phases
 
-The site-builder pipeline has 10 sequential phases. Each phase maps to one or more specialist agents. The orchestrator runs phases in order, managing gates between them.
+The site-builder pipeline has 11 sequential phases. Each phase maps to one or more specialist agents. The orchestrator runs phases in order, managing gates between them.
 
 ## Phase Definitions
 
@@ -78,7 +78,7 @@ The site-builder pipeline has 10 sequential phases. Each phase maps to one or mo
 - **Agent:** deploy-agent
 - **Purpose:** Orchestrator asks "Where do you want to deploy?" (hosting-agnostic — Vercel, Netlify, custom hosting, or other) before spawning the agent; deploy-agent then performs config translation (server rules → framework/platform config), .env variable migration, CI/CD pipeline in-place update (asking to keep or reconfigure any existing pipeline), sitemap verification, staging deployment, production readiness
 - **Inputs:** Built website code, `.site-builder/site-architecture.md`, `.site-builder/project-brief.md` (Environment & Migration Assessment), `status.md` (hosting decision), `reference/legacy-configs.md` (translation tables)
-- **Output:** Translated configs, updated CI/CD pipeline, `.env.example`, `.site-builder/integration-reports/deploy.md` (now includes config translation results, sitemap verification, CI/CD update summary), IndexNow ping script (`scripts/ping-indexnow.mjs`) and CI/CD post-deploy step
+- **Output:** Translated configs, updated CI/CD pipeline, `.env.example`, `.site-builder/integration-reports/deploy.md` (now includes config translation results, sitemap verification, CI/CD update summary), inline IndexNow CI/CD post-deploy notification step (no separate script file)
 - **Gate:** CONFIG TRANSLATION REVIEW (within agent) + USER APPROVAL (after deployment)
 - **Duration estimate:** 20-40 minutes (longer for complex migrations with many rules)
 
@@ -89,6 +89,24 @@ The site-builder pipeline has 10 sequential phases. Each phase maps to one or mo
 - **Output:** Injected credentials in environment configuration, `.site-builder/integration-reports/analytics.md` updated with live verification results
 - **Gate:** USER APPROVAL — orchestrator presents verification results, user approves or provides corrected credentials to retry
 - **Duration estimate:** 5-15 minutes
+
+### Phase 11: AUTO-INDEXING
+- **Agent:** seo-indexing-agent
+- **Purpose:** Configure git-derived sitemap `lastmod`, verify/create the IndexNow key file and inline CI post-deploy notification step, and scaffold an RSS/Atom feed
+- **Inputs:** `.site-builder/status.md` (framework, hosting platform), each adapter's sitemap config, CI/CD config for the detected hosting platform, `public/<key>.txt` (if present), `robots.txt`, `skills/site-builder/reference/sitemap-indexnow.md` Sections E-G
+- **Output:** Patched sitemap config, scaffolded RSS/Atom feed, patched/created IndexNow key + inline CI notification step, patched `robots.txt`, `.site-builder/integration-reports/seo-indexing.md`
+- **Gate:** DIFF APPROVAL — agent presents all proposed file changes for user sign-off before writing
+- **Duration estimate:** 10-20 minutes
+
+**Prerequisites:** Phase 10 ANALYTICS complete (live deployment URL exists). Runs even if Phase 6/9 predate this feature — see `agents/seo-indexing-agent.md` Retrofit Mode.
+
+**Checklist (mirrors the agent's Verify step):**
+- [ ] Git-lastmod resolver patched into sitemap config
+- [ ] IndexNow key file verified/created
+- [ ] IndexNow inline CI notification step verified/created (feed URL included if a feed exists)
+- [ ] RSS/Atom feed scaffolded (or explicitly skipped with a warning — no content collection)
+- [ ] `robots.txt` references sitemap + feed
+- [ ] GitHub Actions `fetch-depth: 0` + `filter: blob:none` confirmed (GitHub Actions only)
 
 ## Update Mode
 
