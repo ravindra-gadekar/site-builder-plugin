@@ -475,3 +475,83 @@ combined output instead of one `execFileSync` per file.
 
 Git-lastmod resolution MUST happen at build time, not request time -- see
 the `_lastmod.json` manifest pattern above for Next.js SSR.
+
+---
+
+## Section G: RSS/Atom Feed Generation
+
+### Skip Condition
+
+If no blog/content collection directory exists (or it exists but is empty),
+skip feed generation entirely and log:
+`⚠ RSS feed: no blog content found — feed generation skipped, re-run after adding content`.
+
+### RSS 2.0 Required-Element Checklist
+
+Validated before writing; entries missing required fields are excluded with
+a per-entry warning. `<channel>` must have `<title>`, `<link>`,
+`<description>`; each `<item>` must have `<title>`, `<link>`, `<pubDate>`.
+
+### Per-Adapter Feed Code
+
+**Astro** (`@astrojs/rss`, `src/pages/feed.xml.js`):
+
+```js
+import rss from '@astrojs/rss';
+import { getCollection } from 'astro:content';
+
+export async function GET(context) {
+  const posts = await getCollection('blog');
+  const valid = posts.filter(p => p.data.title && p.data.pubDate);
+  return rss({
+    title: 'Site Name Blog',
+    description: 'Latest posts',
+    site: context.site,
+    items: valid.map(p => ({
+      title: p.data.title,
+      pubDate: p.data.updatedDate ?? p.data.publishDate,
+      description: p.data.description,
+      link: `/blog/${p.slug}/`,
+    })),
+  });
+}
+```
+
+**Next.js** (App Router route, `src/app/feed.xml/route.ts`):
+
+```ts
+import { NextResponse } from 'next/server';
+
+export async function GET() {
+  const posts = getBlogPosts().filter(p => p.title && p.pubDate);
+  const items = posts.map(p => `
+    <item>
+      <title>${p.title}</title>
+      <link>https://example.com/blog/${p.slug}</link>
+      <pubDate>${new Date(p.pubDate).toUTCString()}</pubDate>
+    </item>`).join('');
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+  <rss version="2.0"><channel>
+    <title>Site Name Blog</title>
+    <link>https://example.com</link>
+    <description>Latest posts</description>
+    ${items}
+  </channel></rss>`;
+  return new NextResponse(xml, { headers: { 'Content-Type': 'application/xml' } });
+}
+```
+
+**Vue/Nuxt** (`server/routes/feed.xml.ts`, or `@nuxtjs/feed` module config): same
+required-field filter, `defineEventHandler` returning the XML string with
+`Content-Type: application/xml`.
+
+**React SPA** (build-time, `scripts/generate-feed.mjs`): reads content dates via
+the Section F `getGitDate` helper, filters posts missing `title`/`pubDate`,
+writes `dist/feed.xml`; add to build command:
+`"build": "vite build && node scripts/generate-sitemap.mjs && node scripts/generate-feed.mjs"`.
+
+### IndexNow Payload Integration
+
+The feed URL (`<site>/feed.xml`) is added to the `urlList` in the Section E
+inline CI step's `URLS` variable once the feed exists — Phase 11 patches the
+CI step to append it (see `seo-indexing-agent.md`).
