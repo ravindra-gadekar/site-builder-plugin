@@ -1,6 +1,6 @@
 ---
 name: site-builder
-description: "Master orchestrator for the site-builder pipeline. Runs 14 specialist agents through a 10-phase workflow to build complete websites from business analysis through deployment. Supports --init, --auto, and --parallel flags. Use when user says /site-builder, 'build a website', 'redesign this site', or 'create website'."
+description: "Master orchestrator for the site-builder pipeline. Runs 15 specialist agents through an 11-phase workflow to build complete websites from business analysis through deployment. Supports --init, --auto, and --parallel flags. Use when user says /site-builder, 'build a website', 'redesign this site', or 'create website'."
 tools: Read, Write, Bash, Grep, Glob
 model: sonnet
 effort: medium
@@ -711,6 +711,7 @@ using Conventional Commits (adopting `/git` skill formatting):
 | 8. INTEGRATE | Social integration | `feat: add social media integration` |
 | 9. DEPLOY | CI/CD setup | `feat: add CI/CD pipeline and deployment config` |
 | 10. ANALYTICS | Credentials injected and verified | `feat: connect analytics credentials and verify tracking` |
+| 11. AUTO-INDEXING | Git-lastmod + IndexNow + feed configured | `feat: add git-derived lastmod, RSS feed, and IndexNow enhancements` |
 
 **Before each commit, the orchestrator:**
 1. Check `.gitignore` — add new patterns if framework tooling generated new output directories (re-run the generation procedure in `reference/gitignore.md` if needed)
@@ -1118,6 +1119,31 @@ CI/CD info). See `reference/doc-refresh.md` Phase 9 mapping.
 
 Update `status.md`: Phase 10 ANALYTICS → completed
 
+### Phase 11: AUTO-INDEXING
+
+1. Spawn `seo-indexing-agent` with prompt:
+   - Inject framework, hosting platform, and deploy branch from `status.md`
+   - Inject the live deployment URL from Phase 9 DEPLOY's report (for
+     post-deploy verification)
+   - Agent's task: patch the sitemap config with a git-derived `lastmod`
+     resolver, verify/create the IndexNow key file and inline CI
+     post-deploy notification step, scaffold an RSS/Atom feed, and patch
+     `robots.txt`
+2. **DIFF APPROVAL GATE** (within agent execution): the agent presents
+   every proposed file change before writing — same presentation pattern
+   as deploy-agent's Config Translation Review Gate. Wait for the agent
+   to report the user's approval before treating the phase as complete.
+3. Wait for agent completion → `.site-builder/integration-reports/seo-indexing.md`
+4. **APPROVAL GATE:** Present the agent's summary report to the user
+   - Show: git-lastmod resolver status, IndexNow status, RSS feed status,
+     `robots.txt` status, any `⚠` warnings
+   - Ask: "Auto-indexing configured. [N] components verified, [M]
+     warnings. Approve, or provide corrections to retry?"
+   - On approval → pipeline complete
+   - On retry → re-run `seo-indexing-agent` with corrected input
+
+Update `status.md`: Phase 11 AUTO-INDEXING → completed
+
 ### Pipeline Complete
 
 Report to user:
@@ -1126,6 +1152,7 @@ Report to user:
 - Audit results: all passed (or remaining issues)
 - Analytics: [status — verified live or pending client action]
 - Social: [status]
+- Auto-indexing: [status — git-lastmod/IndexNow/RSS feed verified, or pending]
 - Deployment: [live/staging URL]
 - Manual tasks: [list from integration reports]
 - **Working branch:** `local-dev` — all pipeline commits live here (unchanged in both modes)
