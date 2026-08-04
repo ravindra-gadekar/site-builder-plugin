@@ -806,7 +806,7 @@ If "selected pages": present the page list from the site map (after ARCHITECT ph
 Check if `.site-builder/status.md` exists:
 
 ### First Run (no status.md)
-→ Run Build Mode & Branch Setup, then start 10-phase pipeline from Phase 1.
+→ Run Build Mode & Branch Setup, then start 11-phase pipeline from Phase 1.
 
 ### Return Run (status.md exists)
 → Read `status.md` to determine state.
@@ -1392,7 +1392,7 @@ When any git or PR operation fails (push, PR creation, PR merge), follow this pa
 
 ### Pipeline Versioning
 
-To handle session resume across plugin updates (e.g., 8-phase → 9-phase → 10-phase):
+To handle session resume across plugin updates (e.g., 8-phase → 9-phase → 10-phase → 11-phase):
 
 **Phase matching by name, not number.** The orchestrator matches phases in `status.md` by their name (`DISCOVER`, `ARCHITECT`, `PREPARE`, etc.), not by their position number. This makes resume resilient to phase renumbering.
 
