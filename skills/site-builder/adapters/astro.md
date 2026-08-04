@@ -145,3 +145,5 @@ The `@astrojs/sitemap` integration generates the sitemap. Configure it with per-
 **Output:** `dist/sitemap-0.xml` (or `dist/sitemap-index.xml` if multiple sitemaps)
 
 **Key detail:** Astro's sitemap integration runs at build time and has access to the filesystem, so reading frontmatter dates via `fs` is the correct approach (not a runtime API).
+
+**Git-lastmod and RSS feed:** see `reference/sitemap-indexnow.md` Sections F-G (Phase 11 only — not during Phase 6 DEVELOP).

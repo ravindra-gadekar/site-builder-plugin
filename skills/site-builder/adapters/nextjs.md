@@ -167,3 +167,5 @@ Use `next-sitemap` package with a `transform` function in `next-sitemap.config.j
 **Alternative (App Router):** Create `app/sitemap.ts` that exports a function returning sitemap entries with per-URL metadata. This is Next.js's built-in approach but requires more manual URL management.
 
 **Output:** `public/sitemap-0.xml` (next-sitemap) or `.next/server/app/sitemap.xml` (built-in)
+
+**Git-lastmod and RSS feed:** see `reference/sitemap-indexnow.md` Sections F-G (Phase 11 only — not during Phase 6 DEVELOP).
