@@ -356,3 +356,122 @@ The deploy-agent must detect the correct path based on the framework in
 - **Max 10,000 URLs per POST** -- batch in groups of 10,000 in the inline shell loop if exceeded (see Performance note below)
 - **Don't resubmit unchanged URLs** repeatedly -- triggers rate limiting (HTTP 429)
 - **Key file encoding:** UTF-8, contains ONLY the key string
+
+---
+
+## Section F: Git-Derived Lastmod Resolver
+
+> **Security requirement:** NEVER use `execSync` with string interpolation
+> for git commands -- always use `execFileSync` with an argument array to
+> prevent command injection via filenames.
+
+### Core Resolver Logic
+
+```js
+import { execFileSync } from 'node:child_process';
+
+function getGitDate(filePath) {
+  try {
+    const out = execFileSync(
+      'git', ['log', '-1', '--format=%aI', '--', filePath],
+      { encoding: 'utf-8' }
+    ).trim();
+    return out || null; // empty = untracked/no history
+  } catch {
+    return null; // git unavailable at build time
+  }
+}
+```
+
+### URL-to-Source-File Mapping
+
+| Page type | Source file for git date | Example | Notes |
+| --- | --- | --- | --- |
+| Content collection (blog `.md`/`.mdx`) | The content file itself | `src/content/blog/my-post.md` | Git dates are reliable -- content changes dominate |
+| Static pages (`.astro`, `.tsx`, `.vue`) | The page component file | `src/pages/about.astro` | Prefer manual `pageLastmod` map with git date as fallback |
+| Data-driven dynamic routes | The data source file (JSON/YAML/TS) | `/services/[slug]` -> `src/data/services.json` | Template file's git date as fallback if data source has no history |
+| Category/tag/pagination pages | Most recent content file in the collection | `src/content/blog/*.md` | Reflects when the collection last changed |
+| Composite pages | The primary content source file only | e.g. a homepage assembled from multiple partials -- use the hero/primary content file | Documented trade-off |
+
+### Per-Adapter Code
+
+**Astro** (`astro.config.mjs`):
+
+```js
+import { execFileSync } from 'node:child_process';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+function getGitDate(filePath) {
+  try {
+    return execFileSync('git', ['log', '-1', '--format=%aI', '--', filePath], { encoding: 'utf-8' }).trim() || null;
+  } catch { return null; }
+}
+
+function getBlogDates() {
+  const dir = './src/content/blog';
+  const dates = {};
+  try {
+    for (const file of readdirSync(dir).filter(f => f.endsWith('.md') || f.endsWith('.mdx'))) {
+      const filePath = join(dir, file);
+      const content = readFileSync(filePath, 'utf-8');
+      const slug = file.replace(/\.mdx?$/, '');
+      const frontmatterDate = content.match(/updatedDate:\s*(\d{4}-\d{2}-\d{2})/)?.[1]
+        || content.match(/publishDate:\s*(\d{4}-\d{2}-\d{2})/)?.[1] || null;
+      const gitDate = getGitDate(filePath);
+      // frontmatter overrides when newer than the git date
+      dates[`/blog/${slug}/`] = (frontmatterDate && (!gitDate || frontmatterDate > gitDate.slice(0, 10)))
+        ? frontmatterDate
+        : gitDate; // may be null -- omit lastmod for that URL
+    }
+  } catch { /* no blog content directory */ }
+  return dates;
+}
+
+// Static/component pages: manual pageLastmod map is primary, git date is fallback
+const pageLastmod = { '/': '2026-06-15' /* ...maintained manually... */ };
+function getStaticLastmod(url, sourceFile) {
+  return pageLastmod[url] || getGitDate(sourceFile) || undefined;
+}
+```
+
+**Next.js** (`next-sitemap.config.js` `transform`, and `_lastmod.json` manifest for App Router SSR):
+
+```js
+// scripts/generate-lastmod-manifest.mjs -- build-time, for app/sitemap.ts (SSR, no git at request time)
+import { execFileSync } from 'node:child_process';
+import { writeFileSync, readdirSync, readFileSync } from 'node:fs';
+
+function getGitDate(filePath) {
+  try {
+    return execFileSync('git', ['log', '-1', '--format=%aI', '--', filePath], { encoding: 'utf-8' }).trim() || null;
+  } catch { return null; }
+}
+
+const manifest = {}; // url -> ISO date | null, populated per the mapping table above
+writeFileSync('_lastmod.json', JSON.stringify(manifest, null, 2));
+```
+
+```ts
+// app/sitemap.ts
+import manifest from '../_lastmod.json';
+export default function sitemap(): MetadataRoute.Sitemap {
+  return routes.map(r => ({ url: r.url, lastModified: manifest[r.url] ?? undefined }));
+}
+```
+
+**Vue/Nuxt** (`nuxt.config.ts` `urls` function): same `getGitDate` helper, applied per blog/static URL entry before returning the array.
+
+**React SPA** (`scripts/generate-sitemap.mjs`): same `getGitDate` helper called per page before writing `dist/sitemap.xml`.
+
+### Performance
+
+For sites with 200+ pages, sequential `execFileSync` per file adds 10-40s to
+builds. Prefer a single batch call: `git log --format='%aI' --name-only`
+across the content directory in one subprocess, parsing all dates from the
+combined output instead of one `execFileSync` per file.
+
+### Build-Time-Only Requirement
+
+Git-lastmod resolution MUST happen at build time, not request time -- see
+the `_lastmod.json` manifest pattern above for Next.js SSR.
