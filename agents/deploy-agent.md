@@ -324,17 +324,23 @@ Configure git workflow:
    | Nuxt | `.output/public/sitemap.xml` |
    | React SPA | `dist/sitemap.xml` |
 
-4. **Create ping script** at `scripts/ping-indexnow.mjs` using the template from `skills/site-builder/reference/sitemap-indexnow.md` Section E, substituting the actual site domain, key, and sitemap path.
+4. **Add the inline post-deploy CI/CD step** (from
+   `skills/site-builder/reference/sitemap-indexnow.md` Section E — no
+   separate script file is created; the `grep`/`jq`/`curl` sequence is
+   inlined directly into the workflow config), substituting the actual
+   site domain, detected key, and sitemap path from steps 1-3 above:
+   - **GitHub Actions:** insert the full inline `run: |` block from
+     Section E immediately after the deploy step in
+     `.github/workflows/deploy.yml`
+   - **Vercel:** insert the same block as a post-build command in
+     `vercel.json`, or a deploy hook that runs it
+   - **Netlify:** insert the same block as a `[[plugins]]` `onSuccess`
+     command, or a post-processing step in `netlify.toml`
 
-5. **Add post-deploy CI/CD step:**
-   - **GitHub Actions:** Add `- name: Notify search engines via IndexNow` / `run: node scripts/ping-indexnow.mjs` immediately after the deploy step
-   - **Vercel:** Add as post-build command or deploy hook
-   - **Netlify:** Add as deploy-succeeded plugin or post-processing command
-
-6. **Include in the deploy commit** alongside CI/CD pipeline files:
+5. **Include in the deploy commit** alongside CI/CD pipeline files:
 
    ```text
-   feat: add CI/CD pipeline, deployment config, and IndexNow integration
+   feat: add CI/CD pipeline, deployment config, and inline IndexNow notification step
    ```
 
 ### 8. Rollback Documentation
