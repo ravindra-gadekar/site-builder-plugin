@@ -29,7 +29,7 @@ skills/site-builder/reference/
 
 **Steps:**
 
-- [ ] **Step 1:** Create `skills/site-builder/reference/refresh-hint.sh` with the following structure:
+- [x] **Step 1:** Create `skills/site-builder/reference/refresh-hint.sh` with the following structure:
 
   ```sh
   #!/bin/sh
@@ -71,13 +71,13 @@ skills/site-builder/reference/
 
   **TSX in BRAND.md group:** Per the spec, `.tsx` files are in the BRAND.md group (not ARCHITECTURE.md with `.ts`) because TSX files typically contain styled components with design tokens.
 
-- [ ] **Step 2:** Verify the script parses without errors:
+- [x] **Step 2:** Verify the script parses without errors:
   ```sh
   sh -n skills/site-builder/reference/refresh-hint.sh
   ```
   Expected: no output, exit 0.
 
-- [ ] **Step 3:** Commit: `feat(reference): add targeted refresh-hint PostToolUse script`
+- [x] **Step 3:** Commit: `feat(reference): add targeted refresh-hint PostToolUse script`
 
 ---
 
@@ -93,7 +93,7 @@ skills/site-builder/reference/
 
 **Steps:**
 
-- [ ] **Step 1:** Verify POSIX compliance — no bash-only syntax:
+- [x] **Step 1:** Verify POSIX compliance — no bash-only syntax:
   ```sh
   # Must find NONE of these:
   grep -n '\[\[' skills/site-builder/reference/refresh-hint.sh
@@ -102,7 +102,7 @@ skills/site-builder/reference/
   ```
   All three greps must return no matches.
 
-- [ ] **Step 2:** Verify pattern matching with mock JSON — each test pipes mock JSON to the script and checks stdout:
+- [x] **Step 2:** Verify pattern matching with mock JSON — each test pipes mock JSON to the script and checks stdout:
 
   | Input `file_path` | Expected output contains | AC |
   |---|---|---|
@@ -126,7 +126,7 @@ skills/site-builder/reference/
   echo '{"tool_name":"Edit","file_path":"<value>"}' | sh skills/site-builder/reference/refresh-hint.sh
   ```
 
-- [ ] **Step 3:** Verify empty/missing `file_path` produces no output:
+- [x] **Step 3:** Verify empty/missing `file_path` produces no output:
   ```sh
   echo '{}' | sh skills/site-builder/reference/refresh-hint.sh
   # Expected: no output, exit 0
@@ -135,7 +135,7 @@ skills/site-builder/reference/
   # Expected: no output, exit 0
   ```
 
-- [ ] **Step 4:** If any test fails, fix the script and re-run `sh -n` + failed tests. Commit fix: `fix(reference): correct refresh-hint pattern matching`
+- [x] **Step 4:** All tests passed on first run — no fix commit needed.
 
 ---
 
