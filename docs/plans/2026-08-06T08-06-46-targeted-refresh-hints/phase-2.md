@@ -31,7 +31,7 @@ skills/site-builder/reference/
 
 **Steps:**
 
-- [ ] **Step 1:** In `skills/site-builder/reference/doc-refresh-script.sh`, locate the existing BRAND.md section (line 105-133, the `if [ -f "BRAND.md" ] && [ -f "$DESIGN_SYSTEM" ]` block). After this block, add a new `elif` branch for the Tailwind fallback. The logic:
+- [x] **Step 1:** In `skills/site-builder/reference/doc-refresh-script.sh`, locate the existing BRAND.md section (line 105-133, the `if [ -f "BRAND.md" ] && [ -f "$DESIGN_SYSTEM" ]` block). After this block, add a new `elif` branch for the Tailwind fallback. The logic:
 
   ```sh
   # --- BRAND.md: Design Tokens (Tailwind fallback when design-system.md absent) ---
@@ -117,14 +117,14 @@ skills/site-builder/reference/
   - Awk extraction uses `2>/dev/null || true` — empty/partial results skip the marker, never corrupt existing content.
   - JS expressions like `require()` or spread operators produce partial/empty results — this is acceptable per the spec.
 
-- [ ] **Step 2:** Verify the existing BRAND.md patching from `design-system.md` still works unchanged (AC-15). The new code is an `elif` branch — the original `if` block is untouched.
+- [x] **Step 2:** Verify the existing BRAND.md patching from `design-system.md` still works unchanged (AC-15). The new code is an `elif` branch — the original `if` block is untouched.
 
-- [ ] **Step 3:** Run syntax check:
+- [x] **Step 3:** Run syntax check:
   ```sh
   sh -n skills/site-builder/reference/doc-refresh-script.sh
   ```
 
-- [ ] **Step 4:** Commit: `feat(reference): add Tailwind config fallback for BRAND.md token patching`
+- [x] **Step 4:** Commit: `feat(reference): add Tailwind config fallback for BRAND.md token patching`
 
 ---
 
@@ -143,7 +143,7 @@ skills/site-builder/reference/
 
 **Steps:**
 
-- [ ] **Step 1:** In `skills/site-builder/reference/doc-refresh-script.sh`, make three structural changes to enable the soft-blocking gate:
+- [x] **Step 1:** In `skills/site-builder/reference/doc-refresh-script.sh`, make three structural changes to enable the soft-blocking gate:
 
   1. **Remove the final `exit 0`** (currently the last line, line 149). The gate will control the exit code.
   2. **Insert `trap - EXIT`** after the auto-staging loop (after the second `for f in CONTEXT.md CLAUDE.md` loop, before the new gate logic). This clears the safety-net trap so the gate's `exit 1` is not intercepted.
@@ -162,7 +162,7 @@ skills/site-builder/reference/
   # gate logic here (can exit 1)
   ```
 
-- [ ] **Step 2:** Add the soft-blocking gate logic after `trap - EXIT`:
+- [x] **Step 2:** Add the soft-blocking gate logic after `trap - EXIT`:
 
   ```sh
   # --- Step 3: Soft-blocking doc-relevance gate ---
@@ -233,19 +233,19 @@ skills/site-builder/reference/
   - Bypass instruction included in output (AC-8).
   - The gitignore hook runs in its own marker block and is unaffected (AC-17).
 
-- [ ] **Step 3:** Run syntax check:
+- [x] **Step 3:** Run syntax check:
   ```sh
   sh -n skills/site-builder/reference/doc-refresh-script.sh
   ```
 
-- [ ] **Step 4:** Verify the full script structure:
+- [x] **Step 4:** Verify the full script structure:
   - Lines 1-9: `set -e`, `trap 'exit 0' EXIT`, helper function — unchanged
   - Lines ~10-133: Step 1 patching (ARCHITECTURE.md + BRAND.md) — unchanged (AC-15)
   - Lines ~134-147: Step 2 auto-staging — unchanged
   - New line: `trap - EXIT` — clears safety trap
   - New lines: Step 3 gate logic — can exit 1
 
-- [ ] **Step 5:** Commit: `feat(reference): add soft-blocking doc-relevance gate to pre-commit script`
+- [x] **Step 5:** Commit: `feat(reference): add soft-blocking doc-relevance gate to pre-commit script`
 
 ---
 
