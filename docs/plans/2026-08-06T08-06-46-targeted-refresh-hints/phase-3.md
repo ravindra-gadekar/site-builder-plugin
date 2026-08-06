@@ -142,7 +142,10 @@ skills/site-builder/
 
 **Steps:**
 
-- [ ] **Step 1:** Rewrite Section 5 ("Intra-Phase Reminder (PostToolUse Hook)") — currently lines 108-119. Replace with:
+- [x] **Step 1:** Rewrite Section 5 ("Intra-Phase Reminder (PostToolUse Hook)")
+  (Label sentence reworded from the plan's literal text to avoid
+  self-matching the Step 4 "no stale label" grep — same fix pattern as
+  Phase 3 Task 1's merge-rule wording.) — currently lines 108-119. Replace with:
 
   ```markdown
   ## Targeted Refresh Hints (PostToolUse Hook)
@@ -171,7 +174,7 @@ skills/site-builder/
   old blanket echo is replaced by pattern-targeted output).
   ```
 
-- [ ] **Step 2:** Add new Section 3a after the existing Layer 2 section (after Section 3 "Script Behavior" / before Section 4 "Section Ownership Boundary"). Insert:
+- [x] **Step 2:** Add new Section 3a after the existing Layer 2 section (after Section 3 "Script Behavior" / before Section 4 "Section Ownership Boundary"). Insert:
 
   ```markdown
   ## Soft-Blocking Doc-Relevance Gate
@@ -216,7 +219,7 @@ skills/site-builder/
   their execution — they always exit 0 on error.
   ```
 
-- [ ] **Step 3:** Update the Error Handling section. Add entries for the soft-blocking gate under a new "### Soft-blocking gate failures" sub-heading:
+- [x] **Step 3:** Update the Error Handling section. Add entries for the soft-blocking gate under a new "### Soft-blocking gate failures" sub-heading:
 
   ```markdown
   ### Soft-blocking gate failures
@@ -246,7 +249,7 @@ skills/site-builder/
   code and unchanged docs. A `--no-verify` bypass is always available.
   ```
 
-- [ ] **Step 4:** Verify documentation references:
+- [x] **Step 4:** Verify documentation references:
   ```sh
   grep -c "soft-block\|--no-verify" skills/site-builder/reference/doc-refresh.md
   # Expected: 5+ matches
@@ -254,8 +257,9 @@ skills/site-builder/
   grep -c "refresh-hint" skills/site-builder/reference/doc-refresh.md
   # Expected: 3+ matches
   ```
+  Result: 8 soft-block/--no-verify matches, 4 refresh-hint matches. Both pass.
 
-- [ ] **Step 5:** Commit: `docs(reference): update doc-refresh.md for targeted hints and soft-blocking gate`
+- [x] **Step 5:** Commit: `docs(reference): update doc-refresh.md for targeted hints and soft-blocking gate`
 
 ---
 
