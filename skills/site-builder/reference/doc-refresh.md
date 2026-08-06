@@ -89,6 +89,49 @@ pattern matching.
 
 ---
 
+## Soft-Blocking Doc-Relevance Gate
+
+Step 3 of the pre-commit script (after mechanical-facts patching and
+auto-staging) scans staged code files against doc-relevance patterns
+and warns (exit 1) if matching docs have no changes.
+
+### Gate Patterns (Enforcement — Narrower Than Hints)
+
+| Staged file pattern | Required doc | Warning if doc unchanged |
+|---|---|---|
+| `*.css`, `*.scss`, `tailwind.config.*` | BRAND.md | Design-token patterns detected |
+| `src/pages/*`, `src/app/*`, `app/pages/*`, or files added/deleted | ARCHITECTURE.md | Route/structure patterns detected |
+| `package.json` | ARCHITECTURE.md | Build/deps changed |
+
+These patterns are intentionally narrower than `refresh-hint.sh` — no
+blanket `*.ts`/`*.js`, no `*.tsx`, no `*config.*`. Hints are advisory;
+the gate is enforcement. Broad gate patterns cause false-positive fatigue
+that trains developers to always use `--no-verify`, defeating the purpose.
+
+### Gate Behavior
+
+- **"Has no changes"** means the doc is not in `git diff --name-only`
+  (unstaged) AND not in `git diff --cached --name-only` (staged). A doc
+  with ANY changes (staged or unstaged) passes the gate — unstaged
+  changes suggest the developer is aware the doc needs updating.
+- **All warnings are aggregated** before exiting 1 — the developer sees
+  the complete picture, not one-at-a-time messages.
+- **Bypass:** `git commit --no-verify` skips the entire pre-commit hook,
+  including the gate. The gate message includes this instruction.
+- **Interaction with patching:** Step 1 (patching) runs before Step 3
+  (gate). If the auto-patcher already refreshed and staged BRAND.md from
+  a Tailwind config change, the gate won't fire — it only catches gaps
+  the mechanical patcher can't cover.
+
+### Trap Reset
+
+Before Step 3, the script executes `trap - EXIT` to clear the safety-net
+trap that protects Steps 1-2. This allows the gate's `exit 1` to
+propagate. Steps 1-2 remain protected by `trap 'exit 0' EXIT` during
+their execution — they always exit 0 on error.
+
+---
+
 ## Section Ownership Boundary
 
 Each auto-managed section is wrapped in `<!-- auto:* -->` markers.
@@ -106,17 +149,30 @@ the markers rather than outside them.
 
 ---
 
-## Intra-Phase Reminder (PostToolUse Hook)
+## Targeted Refresh Hints (PostToolUse Hook)
 
-The PostToolUse hook (`echo 'Docs may be stale...'`) is retained as an
-intra-phase nudge. It fires during agent work; the gate fires at phase
-boundaries. Different scope, both useful.
+The PostToolUse hook runs `.site-builder/refresh-hint.sh` after every
+`Edit` or `Write` during a Claude session. The script reads the
+PostToolUse JSON from stdin, extracts the `file_path`, and
+pattern-matches it against doc-relevant file types:
 
-The echo message mentions BRAND.md alongside ARCHITECTURE.md and
-CONTEXT.md.
+| File pattern | Hint target |
+|---|---|
+| `*.css`, `*.scss`, `*.tsx`, `tailwind.config.*` | BRAND.md (colors/tokens section) |
+| `*.ts`, `*.js`, `*/src/pages/*`, `*/src/app/*` | ARCHITECTURE.md (directory structure, routes) |
+| `package.json`, `*config.*` | ARCHITECTURE.md + CLAUDE.md (deps, build commands) |
+| `*/schema/*`, `*.model.*`, `*/content/config.*` | CONTEXT.md (domain model section) |
 
-**Label:** "Intra-phase reminder" (not "Layer 1" — that label now belongs
-to the gate).
+Files that don't match any pattern produce no output — no generic echo,
+no noise for irrelevant edits.
+
+The hint script is installed to `.site-builder/refresh-hint.sh` during
+Init (Section 2.5) and overwritten on re-init (same lifecycle as the
+pre-commit hook content). The template lives at
+`reference/refresh-hint.sh`.
+
+**Label:** "Targeted refresh hints" (the prior generic-nudge label is
+retired — the old blanket echo is replaced by pattern-targeted output).
 
 ---
 
@@ -161,6 +217,16 @@ within the site-builder block.
 | Auto-markers missing from doc file | Skip that section. Never write outside markers. Exit 0. |
 | Script syntax error (bug in shipped template) | Pre-commit hook fails, `git commit` aborts. User can `git commit --no-verify` to bypass. |
 | Windows without Git Bash sh | `.git/hooks/pre-commit` runs under Git Bash's sh. If unavailable, commit proceeds without hook. |
+| Tailwind config missing (no `tailwind.config.*` and no `design-system.md`) | Skip BRAND.md token patching entirely. Exit 0. |
+| Tailwind config uses JS expressions (e.g., `require()`) | Partial/empty extraction results. Patch with whatever was extracted; empty result skips the marker. Never corrupt existing content. |
+
+### Soft-blocking gate failures
+
+| Failure | Recovery |
+|---|---|
+| Gate fires (code staged, doc not staged) | Print specific warnings naming which docs are stale. Print bypass instruction (`git commit --no-verify`). Exit 1. |
+| False positive (doc was refreshed but in a different commit) | Developer uses `--no-verify` to bypass. Gate message makes this clear. |
+| Gate logic itself errors (script bug in Step 3) | The EXIT trap is already cleared before Step 3, so a bug here causes a non-zero exit and blocks the commit. Developers use `--no-verify` to bypass. This is acceptable — a gate bug is rare and the bypass is documented. |
 
 ### Update Mode gate failures
 
@@ -171,9 +237,10 @@ within the site-builder block.
 
 ### Key principle
 
-Layer 2 never blocks commits on doc-refresh failure. It exits 0 on every
-error path. A broken refresh script must never prevent a user from
-committing their actual code.
+Layer 2 patching (Steps 1-2) never blocks commits on doc-refresh failure.
+It exits 0 on every error path. Only the soft-blocking gate (Step 3) can
+exit 1, and only when it detects a real pattern mismatch between staged
+code and unchanged docs. A `--no-verify` bypass is always available.
 
 ---
 
