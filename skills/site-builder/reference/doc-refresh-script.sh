@@ -221,4 +221,62 @@ for f in CONTEXT.md CLAUDE.md; do
   fi
 done
 
+# --- Step 3: Soft-blocking doc-relevance gate ---
+# Narrower patterns than refresh-hint.sh — enforcement, not advisory.
+# Only blocks on structurally significant changes to avoid false-positive
+# fatigue that would train developers to always use --no-verify.
+trap - EXIT
+
+gate_warnings=""
+
+# Get staged files list (once, reused by all checks)
+staged_files=$(git diff --cached --name-only 2>/dev/null || true)
+[ -z "$staged_files" ] && exit 0
+
+# Helper: check if a doc has ANY changes (staged or unstaged)
+doc_has_changes() {
+  _doc="$1"
+  [ -f "$_doc" ] || return 1
+  git diff --name-only 2>/dev/null | grep -qx "$_doc" && return 0
+  git diff --cached --name-only 2>/dev/null | grep -qx "$_doc" && return 0
+  return 1
+}
+
+# Check 1: Design-token files staged, BRAND.md unchanged
+if echo "$staged_files" | grep -qE '\.(css|scss)$' || \
+   echo "$staged_files" | grep -q 'tailwind\.config\.'; then
+  if ! doc_has_changes "BRAND.md"; then
+    gate_warnings="${gate_warnings}>> WARNING: BRAND.md may need updating — staged files match design-token patterns (*.css, *.scss, tailwind.config.*)
+"
+  fi
+fi
+
+# Check 2: Route/structure files staged OR files added/deleted, ARCHITECTURE.md unchanged
+route_match=""
+if echo "$staged_files" | grep -qE '(^|/)src/pages/|src/app/|app/pages/'; then
+  route_match="yes"
+fi
+added_deleted=$(git diff --cached --diff-filter=AD --name-only 2>/dev/null || true)
+if [ -n "$route_match" ] || [ -n "$added_deleted" ]; then
+  if ! doc_has_changes "ARCHITECTURE.md"; then
+    gate_warnings="${gate_warnings}>> WARNING: ARCHITECTURE.md may need updating — staged files match route/structure patterns
+"
+  fi
+fi
+
+# Check 3: package.json staged, ARCHITECTURE.md unchanged
+if echo "$staged_files" | grep -qx 'package.json'; then
+  if ! doc_has_changes "ARCHITECTURE.md"; then
+    gate_warnings="${gate_warnings}>> WARNING: ARCHITECTURE.md build/deps may need updating — package.json was changed
+"
+  fi
+fi
+
+# Aggregate and exit (AC-19: all warnings shown, not one-at-a-time)
+if [ -n "$gate_warnings" ]; then
+  printf '%s' "$gate_warnings"
+  echo "Refresh the listed docs, or run 'git commit --no-verify' to skip."
+  exit 1
+fi
+
 exit 0
