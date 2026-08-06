@@ -30,7 +30,7 @@ skills/site-builder/reference/
 
 #### Steps
 
-- [ ] **Step 1:** Add `<!-- auto:* -->` markers to the ARCHITECTURE.md template (Section 2, lines 124–185).
+- [x] **Step 1:** Add `<!-- auto:* -->` markers to the ARCHITECTURE.md template (Section 2, lines 124–185).
 
   Wrap the Directory Structure section's code block:
   ```markdown
@@ -80,7 +80,7 @@ skills/site-builder/reference/
 
   The rest of ARCHITECTURE.md (Purpose, Key Patterns, Entry Points, Testing) remains unwrapped — these are judgment sections managed by Layer 1 only.
 
-- [ ] **Step 2:** Add BRAND.md section as Section 4 (after the existing Section 3: CLAUDE.md, before the "File Creation Order" section).
+- [x] **Step 2:** Add BRAND.md section as Section 4 (after the existing Section 3: CLAUDE.md, before the "File Creation Order" section).
 
   ```markdown
   ## 4. BRAND.md
@@ -114,7 +114,7 @@ skills/site-builder/reference/
   designer-agent gate (Layer 1) only.
   ```
 
-- [ ] **Step 3:** Add `<!-- auto:build-commands -->` marker to the CLAUDE.md template (Section 3) and add the nested-marker rule.
+- [x] **Step 3:** Add `<!-- auto:build-commands -->` marker to the CLAUDE.md template (Section 3) and add the nested-marker rule.
 
   In the CLAUDE.md template (both "Full Generation" and "Append to Existing" variants), wrap the Build & Development Commands section:
   ```markdown
@@ -150,7 +150,7 @@ skills/site-builder/reference/
   `reference/doc-refresh.md` Section 4 for the full ownership boundary.
   ```
 
-- [ ] **Step 4:** Update the CLAUDE.md Architecture Reference lookup order (inside the template) to include BRAND.md.
+- [x] **Step 4:** Update the CLAUDE.md Architecture Reference lookup order (inside the template) to include BRAND.md.
 
   Current order (lines 265–271):
   ```
@@ -171,7 +171,7 @@ skills/site-builder/reference/
   6. Read source files — only when the above don't answer your question
   ```
 
-- [ ] **Step 5:** Update the "File Creation Order" section (currently lines 315–325) to include BRAND.md:
+- [x] **Step 5:** Update the "File Creation Order" section (currently lines 315–325) to include BRAND.md:
 
   ```
   1. CONTEXT.md — domain model
@@ -181,7 +181,7 @@ skills/site-builder/reference/
   4. CLAUDE.md — last, because it references the other docs
   ```
 
-- [ ] **Step 6:** Update the "Population at Init Time vs. Pipeline Enrichment" section (lines 329–342) to include BRAND.md column and Phase 4 DESIGN row.
+- [x] **Step 6:** Update the "Population at Init Time vs. Pipeline Enrichment" section (lines 329–342) to include BRAND.md column and Phase 4 DESIGN row.
 
   Add BRAND.md column to the project-state table:
   ```
@@ -196,9 +196,9 @@ skills/site-builder/reference/
   - Phase 4 DESIGN → BRAND.md (all design tokens and component patterns from design-system.md)
   ```
 
-- [ ] **Step 7:** Verify auto-marker names match Phase 1 Task 3 (doc-refresh-script.sh): `auto:directory-structure`, `auto:dependencies`, `auto:build-dev` for ARCHITECTURE.md; `auto:color-tokens`, `auto:font-stack`, `auto:spacing-scale` for BRAND.md; `auto:build-commands` for CLAUDE.md. Verify BRAND.md section references `brand-template.md`.
+- [x] **Step 7:** Verify auto-marker names match Phase 1 Task 3 (doc-refresh-script.sh): `auto:directory-structure`, `auto:dependencies`, `auto:build-dev` for ARCHITECTURE.md; `auto:color-tokens`, `auto:font-stack`, `auto:spacing-scale` for BRAND.md; `auto:build-commands` for CLAUDE.md. Verify BRAND.md section references `brand-template.md`.
 
-- [ ] **Step 8:** Commit: `docs(reference): add auto-markers, BRAND.md section, and nested-marker rules to doc-templates.md`
+- [x] **Step 8:** Commit: `docs(reference): add auto-markers, BRAND.md section, and nested-marker rules to doc-templates.md`
 
 ---
 
@@ -215,7 +215,7 @@ skills/site-builder/reference/
 
 #### Steps
 
-- [ ] **Step 1:** Modify the Update Mode section (lines 113–118). Insert Doc Refresh Gate step and add agent→doc mapping reference.
+- [x] **Step 1:** Modify the Update Mode section (lines 113–118). Insert Doc Refresh Gate step and add agent→doc mapping reference.
 
   The current `phases.md` Update Mode is a simplified 4-step list. The spec
   requires this section to mirror SKILL.md's full Update Mode flow rather
@@ -258,9 +258,9 @@ skills/site-builder/reference/
   for each agent in step 6.
   ```
 
-- [ ] **Step 2:** Verify step numbering: 7 steps total, Doc Refresh Gate is step 6, Deploy is step 7. Steps 1–5 and 7 mirror SKILL.md's existing Update Mode exactly. Verify reference to `doc-refresh.md` is accurate.
+- [x] **Step 2:** Verify step numbering: 7 steps total, Doc Refresh Gate is step 6, Deploy is step 7. Steps 1–5 and 7 mirror SKILL.md's existing Update Mode exactly. Verify reference to `doc-refresh.md` is accurate.
 
-- [ ] **Step 3:** Commit: `docs(reference): insert Doc Refresh Gate into phases.md Update Mode`
+- [x] **Step 3:** Commit: `docs(reference): insert Doc Refresh Gate into phases.md Update Mode`
 
 ---
 
@@ -277,7 +277,7 @@ skills/site-builder/reference/
 
 #### Steps
 
-- [ ] **Step 1:** Add a new "Documentation" subsection to the Pre-Deploy Checks section (after the existing "Deployment" subsection, before "Client Handoff Package"). Insert:
+- [x] **Step 1:** Add a new "Documentation" subsection to the Pre-Deploy Checks section (after the existing "Deployment" subsection, before "Client Handoff Package"). Insert:
 
   ```markdown
   ### Documentation
@@ -288,9 +288,9 @@ skills/site-builder/reference/
   - [ ] CLAUDE.md marker block contains current tech stack, build commands, and deployment info
   ```
 
-- [ ] **Step 2:** Verify items align with the doc-refresh system: auto-marker checks correspond to Layer 2 sections, judgment-content checks correspond to Layer 1 sections.
+- [x] **Step 2:** Verify items align with the doc-refresh system: auto-marker checks correspond to Layer 2 sections, judgment-content checks correspond to Layer 1 sections.
 
-- [ ] **Step 3:** Commit: `docs(reference): add BRAND.md and auto-marker verification to handoff-checklist.md`
+- [x] **Step 3:** Commit: `docs(reference): add BRAND.md and auto-marker verification to handoff-checklist.md`
 
 ---
 
