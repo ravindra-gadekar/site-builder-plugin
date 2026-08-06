@@ -316,3 +316,12 @@ A: [Answer]
 ## Internal Links
 - [Anchor text](target-page) — [context]
 ```
+
+## Doc Gate Obligation
+
+After this agent completes, the orchestrator verifies the following docs
+per the agent-indexed mapping in `skills/site-builder/reference/doc-refresh.md`:
+
+- **`CONTEXT.md`** — Glossary section. Any new business terms, industry
+  jargon, or entity names introduced in the content
+  (`.site-builder/content/*.md`) must be added to the glossary table.

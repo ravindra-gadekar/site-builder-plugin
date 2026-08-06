@@ -126,3 +126,12 @@ Write `.site-builder/integration-reports/social-integration.md`:
 | Google Business Profile | User: not applicable for this site |
 | TikTok | User: skip for now |
 ```
+
+## Doc Gate Obligation
+
+After this agent completes, the orchestrator verifies the following docs
+per the agent-indexed mapping in `skills/site-builder/reference/doc-refresh.md`:
+
+- **`ARCHITECTURE.md`** — Integrations section. Must reflect the social
+  platforms connected during this agent's run, as reported in
+  `.site-builder/integration-reports/social-integration.md`.
