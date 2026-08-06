@@ -130,6 +130,81 @@ if [ -f "BRAND.md" ] && [ -f "$DESIGN_SYSTEM" ]; then
     found { print }
   ' || true)
   [ -n "$spacing" ] && patch_auto_section "BRAND.md" "spacing-scale" "$spacing"
+
+# --- BRAND.md: Design Tokens (Tailwind fallback when design-system.md absent) ---
+elif [ -f "BRAND.md" ]; then
+  # Tailwind config search order: .ts > .js > .mjs > .cjs (first match wins)
+  tw_config=""
+  for ext in ts js mjs cjs; do
+    if [ -f "tailwind.config.${ext}" ]; then
+      tw_config="tailwind.config.${ext}"
+      break
+    fi
+  done
+
+  if [ -n "$tw_config" ]; then
+    tw_content=$(tr -d '\r' < "$tw_config" || true)
+
+    # Extract color tokens from theme.extend.colors or theme.colors
+    tw_colors=$(echo "$tw_content" | awk '
+      /theme\s*:/ { in_theme=1 }
+      in_theme && /extend\s*:/ { in_extend=1 }
+      in_extend && /colors\s*:/ { in_colors=1; depth=0; next }
+      in_theme && !in_extend && /colors\s*:/ { in_fallback_colors=1; depth=0; next }
+      (in_colors || in_fallback_colors) && /\{/ { depth++ }
+      (in_colors || in_fallback_colors) && /\}/ { depth--; if (depth < 0) { in_colors=0; in_fallback_colors=0 } }
+      in_colors && depth >= 0 && /['\''"]?[a-zA-Z]/ {
+        gsub(/['\''",{}]/, ""); gsub(/^[ \t]+/, ""); gsub(/[ \t]+$/, "");
+        if ($0 != "") print "- " $0
+      }
+    ' 2>/dev/null || true)
+
+    # If extend.colors was empty, try top-level theme.colors
+    if [ -z "$tw_colors" ]; then
+      tw_colors=$(echo "$tw_content" | awk '
+        /theme\s*:/ { in_theme=1 }
+        in_theme && !/extend/ && /colors\s*:/ { in_colors=1; depth=0; next }
+        in_colors && /\{/ { depth++ }
+        in_colors && /\}/ { depth--; if (depth < 0) { in_colors=0 } }
+        in_colors && depth >= 0 && /['\''"]?[a-zA-Z]/ {
+          gsub(/['\''",{}]/, ""); gsub(/^[ \t]+/, ""); gsub(/[ \t]+$/, "");
+          if ($0 != "") print "- " $0
+        }
+      ' 2>/dev/null || true)
+    fi
+
+    [ -n "$tw_colors" ] && patch_auto_section "BRAND.md" "color-tokens" "$tw_colors"
+
+    # Extract font family from theme.extend.fontFamily or theme.fontFamily
+    tw_fonts=$(echo "$tw_content" | awk '
+      /theme\s*:/ { in_theme=1 }
+      in_theme && /extend\s*:/ { in_extend=1 }
+      (in_extend || in_theme) && /fontFamily\s*:/ { in_fonts=1; depth=0; next }
+      in_fonts && /\{/ { depth++ }
+      in_fonts && /\}/ { depth--; if (depth < 0) { in_fonts=0 } }
+      in_fonts && depth >= 0 && /['\''"]?[a-zA-Z]/ {
+        gsub(/['\''",{}[\]]/, ""); gsub(/^[ \t]+/, ""); gsub(/[ \t]+$/, "");
+        if ($0 != "") print "- " $0
+      }
+    ' 2>/dev/null || true)
+
+    [ -n "$tw_fonts" ] && patch_auto_section "BRAND.md" "font-stack" "$tw_fonts"
+
+    # Extract spacing from theme.extend.spacing or theme.spacing
+    tw_spacing=$(echo "$tw_content" | awk '
+      /theme\s*:/ { in_theme=1 }
+      in_theme && /extend\s*:/ { in_extend=1 }
+      (in_extend || in_theme) && /spacing\s*:/ { in_spacing=1; depth=0; next }
+      in_spacing && /\{/ { depth++ }
+      in_spacing && /\}/ { depth--; if (depth < 0) { in_spacing=0 } }
+      in_spacing && depth >= 0 && /['\''"]?[a-zA-Z0-9]/ {
+        gsub(/['\''",{}]/, ""); gsub(/^[ \t]+/, ""); gsub(/[ \t]+$/, "");
+        if ($0 != "") print "- " $0
+      }
+    ' 2>/dev/null || true)
+
+    [ -n "$tw_spacing" ] && patch_auto_section "BRAND.md" "spacing-scale" "$tw_spacing"
+  fi
 fi
 
 # --- Stage patched docs ---
