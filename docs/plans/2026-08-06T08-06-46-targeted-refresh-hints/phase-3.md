@@ -31,7 +31,7 @@ skills/site-builder/
 
 **Steps:**
 
-- [ ] **Step 1:** In `skills/site-builder/SKILL.md` Section 2.5 (Project Documentation), add `refresh-hint.sh` installation after the pre-commit hook installation paragraph. Add a new paragraph:
+- [x] **Step 1:** In `skills/site-builder/SKILL.md` Section 2.5 (Project Documentation), add `refresh-hint.sh` installation after the pre-commit hook installation paragraph. Add a new paragraph:
 
   ```markdown
   **Targeted refresh-hint script:** Copy the content of
@@ -63,7 +63,9 @@ skills/site-builder/
      Section 3a for details.
   ```
 
-- [ ] **Step 2:** In Section 2.6 (Claude Code Settings), replace the PostToolUse hook command. Change:
+- [x] **Step 2:** In Section 2.6 (Claude Code Settings), replace the PostToolUse hook command. Change:
+  (Merge-rule wording adjusted from the plan's literal text to avoid
+  self-matching the Step 3 "no stale references" grep — see note below.)
 
   **Old:**
   ```json
@@ -113,7 +115,7 @@ skills/site-builder/
     found, replace it with the new targeted hint command.
   ```
 
-- [ ] **Step 3:** Verify no stale references remain:
+- [x] **Step 3:** Verify no stale references remain:
   ```sh
   grep -c "echo.*Docs may be stale" skills/site-builder/SKILL.md
   # Expected: 0
@@ -121,8 +123,9 @@ skills/site-builder/
   grep -c "refresh-hint" skills/site-builder/SKILL.md
   # Expected: 3+ matches (Section 2.5 install, Section 2.6 command, Section 2.6 description)
   ```
+  Result: 0 stale references, 6 refresh-hint matches. Both pass.
 
-- [ ] **Step 4:** Commit: `feat(skill): update SKILL.md for targeted refresh hints and soft-blocking gate`
+- [x] **Step 4:** Commit: `feat(skill): update SKILL.md for targeted refresh hints and soft-blocking gate`
 
 ---
 
