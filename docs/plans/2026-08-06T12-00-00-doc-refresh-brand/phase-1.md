@@ -30,7 +30,7 @@ skills/site-builder/reference/
 
 #### Steps
 
-- [ ] **Step 1:** Write `skills/site-builder/reference/brand-template.md` with the following structure:
+- [x] **Step 1:** Write `skills/site-builder/reference/brand-template.md` with the following structure:
 
   **Header section:**
   - Location: Project root (`BRAND.md`)
@@ -125,9 +125,9 @@ skills/site-builder/reference/
   - **After Phase 4 DESIGN:** designer-agent populates ALL sections from `.site-builder/design-system.md`. This is the primary population event.
   - **After Phase 6 DEVELOP:** developer-agent verifies that BRAND.md tokens still match design-system.md (tokens may have been adjusted during implementation). Verify-only — do not overwrite designer-agent content unless values diverged.
 
-- [ ] **Step 2:** Verify template sections align with designer-agent output format — every section in `.site-builder/design-system.md` (Colors, Typography, Spacing, Component Patterns) has a corresponding section in the BRAND.md template. Verify auto-marker names are consistent: `auto:color-tokens`, `auto:font-stack`, `auto:spacing-scale`.
+- [x] **Step 2:** Verify template sections align with designer-agent output format — every section in `.site-builder/design-system.md` (Colors, Typography, Spacing, Component Patterns) has a corresponding section in the BRAND.md template. Verify auto-marker names are consistent: `auto:color-tokens`, `auto:font-stack`, `auto:spacing-scale`.
 
-- [ ] **Step 3:** Commit: `docs(reference): add brand-template.md for BRAND.md template and population rules`
+- [x] **Step 3:** Commit: `docs(reference): add brand-template.md for BRAND.md template and population rules`
 
 ---
 
@@ -144,7 +144,7 @@ skills/site-builder/reference/
 
 #### Steps
 
-- [ ] **Step 1:** Rewrite `skills/site-builder/reference/doc-refresh.md` with the following structure. Replace all existing content.
+- [x] **Step 1:** Rewrite `skills/site-builder/reference/doc-refresh.md` with the following structure. Replace all existing content.
 
   **Section 1 — Overview:**
   - Title: "Doc Refresh Mechanism"
@@ -245,9 +245,9 @@ skills/site-builder/reference/
   - Coexists with the gitignore hook's `site-builder:gitignore` marker block.
   - Installation rules: same as current doc-refresh.md (create if absent, append if no marker, replace if marker exists).
 
-- [ ] **Step 2:** Verify: all 9 agents in the mapping table exist in `agents/` (confirmed: discovery, architect, developer, designer, content, deploy, analytics, seo-indexing, social-integration). Verify auto-marker names are consistent with Task 1 (brand-template.md): `auto:color-tokens`, `auto:font-stack`, `auto:spacing-scale`. Verify ARCHITECTURE.md markers: `auto:directory-structure`, `auto:dependencies`, `auto:build-dev`.
+- [x] **Step 2:** Verify: all 9 agents in the mapping table exist in `agents/` (confirmed: discovery, architect, developer, designer, content, deploy, analytics, seo-indexing, social-integration). Verify auto-marker names are consistent with Task 1 (brand-template.md): `auto:color-tokens`, `auto:font-stack`, `auto:spacing-scale`. Verify ARCHITECTURE.md markers: `auto:directory-structure`, `auto:dependencies`, `auto:build-dev`.
 
-- [ ] **Step 3:** Commit: `docs(reference): rewrite doc-refresh.md with agent-indexed gate and mechanical-facts script`
+- [x] **Step 3:** Commit: `docs(reference): rewrite doc-refresh.md with agent-indexed gate and mechanical-facts script`
 
 ---
 
@@ -264,7 +264,7 @@ skills/site-builder/reference/
 
 #### Steps
 
-- [ ] **Step 1:** Write `skills/site-builder/reference/doc-refresh-script.sh` with the following content:
+- [x] **Step 1:** Write `skills/site-builder/reference/doc-refresh-script.sh` with the following content:
 
   ```sh
   #!/bin/sh
@@ -424,14 +424,14 @@ skills/site-builder/reference/
   - The awk-based `patch_auto_section` function replaces only content between matching markers, leaving everything else untouched.
   - Auto-staging at the end covers both Layer 2 patched files (ARCHITECTURE.md, BRAND.md) and Layer 1 refreshed files (CONTEXT.md, CLAUDE.md).
 
-- [ ] **Step 2:** Run script template verification (per spec testing strategy):
-  1. `sh -n skills/site-builder/reference/doc-refresh-script.sh` — must parse without errors.
-  2. Create a scratch file with sample `<!-- auto:directory-structure -->` / `<!-- /auto:directory-structure -->` markers and known content between them. Run the `patch_auto_section` logic against it. Confirm only marker content is replaced and surrounding text is untouched.
-  3. Run the script in an empty scratch directory (no `ARCHITECTURE.md`, no `BRAND.md`, no `package.json`). Confirm exit code is 0.
+- [x] **Step 2:** Run script template verification (per spec testing strategy):
+  1. `sh -n skills/site-builder/reference/doc-refresh-script.sh` — must parse without errors. **PASS.**
+  2. Create a scratch file with sample `<!-- auto:directory-structure -->` / `<!-- /auto:directory-structure -->` markers and known content between them. Run the `patch_auto_section` logic against it. Confirm only marker content is replaced and surrounding text is untouched. **PASS** — found and fixed a real bug during this step: `awk -v close=...` collides with gawk's builtin `close()` function ("cannot use gawk builtin `close' as variable name"), which made the awk call fail silently under `set -e` + `trap 'exit 0' EXIT` (exit 0, but no patching occurred). Renamed the awk vars `open`/`close` → `mstart`/`mend`. Re-ran: marker content replaced correctly, surrounding text untouched.
+  3. Run the script in an empty scratch directory (no `ARCHITECTURE.md`, no `BRAND.md`, no `package.json`). Confirm exit code is 0. **PASS.**
 
-- [ ] **Step 3:** Verify POSIX compliance: no bash arrays, no `[[ ]]`, no herestrings, no process substitution. All conditionals use `[ ]`. Verify auto-marker names match Task 1 and Task 2: `auto:directory-structure`, `auto:dependencies`, `auto:build-dev`, `auto:color-tokens`, `auto:font-stack`, `auto:spacing-scale`.
+- [x] **Step 3:** Verify POSIX compliance: no bash arrays, no `[[ ]]`, no herestrings, no process substitution. All conditionals use `[ ]`. Verify auto-marker names match Task 1 and Task 2: `auto:directory-structure`, `auto:dependencies`, `auto:build-dev`, `auto:color-tokens`, `auto:font-stack`, `auto:spacing-scale`.
 
-- [ ] **Step 4:** Commit: `feat(reference): add doc-refresh-script.sh pre-commit template for mechanical-facts patching`
+- [x] **Step 4:** Commit: `feat(reference): add doc-refresh-script.sh pre-commit template for mechanical-facts patching`
 
 ---
 
