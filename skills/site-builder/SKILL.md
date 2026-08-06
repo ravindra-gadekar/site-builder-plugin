@@ -93,9 +93,10 @@ read in full before anything is written, never deleted first).
 
 ### 2.5. Project Documentation
 
-Generate `CONTEXT.md`, `ARCHITECTURE.md`, and `CLAUDE.md` in the project
-root. Follow `reference/doc-templates.md` for templates and population
-rules.
+Generate `CONTEXT.md`, `ARCHITECTURE.md`, `BRAND.md`, and `CLAUDE.md` in
+the project root. Follow `reference/doc-templates.md` for templates and
+population rules. For `BRAND.md` specifically, follow
+`reference/brand-template.md` for the template and population rules.
 
 **If any of these files already exist:**
 - `CONTEXT.md` / `ARCHITECTURE.md` — update sections with current data
@@ -103,23 +104,45 @@ rules.
   Preserve any manual additions the user made.
 - `CLAUDE.md` — search for `<!-- site-builder:start -->` /
   `<!-- site-builder:end -->` markers. If found, replace only the marker
-  block content. If no markers exist, append the marker block at the end
-  of the file. Never overwrite user content outside the markers.
+  block content, but **preserve any nested `<!-- auto:* -->` blocks** and
+  their content within the marker block (see `reference/doc-templates.md`
+  Marker Block Rules, rule 4). If no markers exist, append the marker
+  block at the end of the file. Never overwrite user content outside the
+  markers.
+- `BRAND.md` — if it exists, update design token sections with current
+  data from `.site-builder/design-system.md` (if present) or CSS/Tailwind
+  config. Preserve any manual additions. If it doesn't exist, create from
+  the template in `reference/brand-template.md`. At init time the project
+  may not have a design system yet — populate from existing CSS/Tailwind
+  config if present, otherwise use placeholders.
 
 **If these files don't exist:** create them from the templates in
-`reference/doc-templates.md`. At init time the project may be empty
-(greenfield) — populate whatever is available from existing files and
-leave the rest as placeholders. The pipeline enriches these docs as it
-progresses (see `reference/doc-refresh.md` for the phase-by-phase refresh
-mapping).
+`reference/doc-templates.md` (`CONTEXT.md`, `ARCHITECTURE.md`, `CLAUDE.md`)
+and `reference/brand-template.md` (`BRAND.md`). At init time the project
+may be empty (greenfield) — populate whatever is available from existing
+files and leave the rest as placeholders. The pipeline enriches these docs
+as it progresses (see `reference/doc-refresh.md` for the agent-indexed
+refresh mapping).
 
-**Pre-commit hook for auto-staging:** After generating docs, install the
-pre-commit hook from `reference/doc-refresh.md` (Layer 2) into
-`.git/hooks/pre-commit`. This ensures that when the orchestrator or any
-agent refreshes docs during the pipeline, the updated files are
-automatically staged into the next commit. The hook uses a
-`site-builder:docs` marker block so it coexists with the gitignore hook
-from Section 2 and any other existing hooks.
+**Pre-commit hook for doc refresh:** After generating docs, install the
+pre-commit hook into `.git/hooks/pre-commit`. The hook performs two jobs:
+
+1. **Mechanical-facts patching (Layer 2):** Runs the script from
+   `reference/doc-refresh-script.sh` to patch `<!-- auto:* -->` marker
+   sections in `ARCHITECTURE.md` and `BRAND.md` from source files on disk
+   (directory tree, package.json, design-system.md). See
+   `reference/doc-refresh.md` Section 3 for details.
+2. **Auto-staging:** Stages any doc files with unstaged changes
+   (`CONTEXT.md`, `ARCHITECTURE.md`, `BRAND.md`, `CLAUDE.md`) into the
+   commit so refreshed docs travel with code changes.
+
+The orchestrator embeds the full content of `reference/doc-refresh-script.sh`
+verbatim into the `site-builder:docs` marker block — the hook cannot
+reference `reference/...` paths at runtime since those live inside the
+skill's install directory, not the client project.
+
+The hook is wrapped in a `site-builder:docs` marker block and coexists
+with the gitignore hook from Section 2.
 
 If doc generation or hook installation fails for any reason: warn and
 continue — the pipeline does not depend on these docs existing. They are
@@ -159,7 +182,7 @@ object — never overwrite user-configured hooks or permissions.
         "hooks": [
           {
             "type": "command",
-            "command": "echo '>> Docs may be stale. If you changed exports, schemas, or domain concepts, update the relevant ARCHITECTURE.md and CONTEXT.md sections now.'"
+            "command": "echo '>> Docs may be stale. If you changed exports, schemas, or domain concepts, update the relevant ARCHITECTURE.md, CONTEXT.md, and BRAND.md sections now.'"
           }
         ]
       }
@@ -174,10 +197,11 @@ object — never overwrite user-configured hooks or permissions.
   agents use frequently, so the user is not prompted for permission on
   every PR creation or docs lookup. The user can always revoke or adjust
   these in settings.
-- **`hooks.PostToolUse`** — Layer 1 of the doc-refresh system (see
-  `reference/doc-refresh.md`). After every `Edit` or `Write` during a
-  Claude session, echoes a reminder to refresh project docs if relevant
-  files changed. This is the primary mechanism that keeps docs current.
+- **`hooks.PostToolUse`** — Intra-phase reminder for the doc-refresh
+  system (see `reference/doc-refresh.md` Section 5). After every `Edit`
+  or `Write` during a Claude session, echoes a reminder to refresh
+  project docs if relevant files changed. This fires during agent work;
+  the agent-indexed gate (Layer 1) fires at phase boundaries.
 
 **Merge rules:**
 
