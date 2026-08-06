@@ -190,3 +190,13 @@ Option A: Direct platform connections
 - [ ] Create Clarity project and add ID to env
 - [ ] Submit sitemap URL in GSC: [sitemap URL]
 ```
+
+## Doc Gate Obligation
+
+After this agent completes, the orchestrator verifies the following docs
+per the agent-indexed mapping in `skills/site-builder/reference/doc-refresh.md`:
+
+- **`CLAUDE.md`** — Analytics config reference inside the
+  `<!-- site-builder:start -->` marker block. Must reflect the analytics
+  platforms installed and their verification status, as reported in
+  `.site-builder/integration-reports/analytics.md`.

@@ -229,3 +229,13 @@ Write `.site-builder/integration-reports/seo-indexing.md`:
 - [ ] None — Phase 11 is fully automated (GSC sitemap submission was
       already covered by Phase 10's manual reminder)
 ```
+
+## Doc Gate Obligation
+
+After this agent completes, the orchestrator verifies the following docs
+per the agent-indexed mapping in `skills/site-builder/reference/doc-refresh.md`:
+
+- **`CLAUDE.md`** — Indexing config reference inside the
+  `<!-- site-builder:start -->` marker block. Must reflect the IndexNow,
+  RSS/Atom feed, and sitemap configuration, as reported in
+  `.site-builder/integration-reports/seo-indexing.md`.
