@@ -2,7 +2,7 @@
   "version": "1.1.0",
   "plugin": "https://github.com/ravindra-gadekar/fullstack-dev-plugin.git",
   "projectName": "Site Builder Agents",
-  "description": "A Claude Code skills plugin that installs a team of 14 specialized AI agents and a master orchestrator into any client website project, handling the complete website design lifecycle from business analysis through deployment.",
+  "description": "A Claude Code skills plugin that installs a team of 15 specialized AI agents and a master orchestrator into any client website project, handling the complete website design lifecycle from business analysis through deployment.",
   "projectType": "cli",
   "repoStructure": "mono-repo",
   "metaRepo": {
