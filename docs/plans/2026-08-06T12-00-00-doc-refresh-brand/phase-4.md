@@ -34,7 +34,7 @@ agents/
 
 #### Steps
 
-- [ ] **Step 1:** Add a "Doc Gate Obligation" section to `agents/designer-agent.md`. Insert at the end of the file, after the "Output Format" section (after line 401).
+- [x] **Step 1:** Add a "Doc Gate Obligation" section to `agents/designer-agent.md`. Insert at the end of the file, after the "Output Format" section (after line 401).
 
   ```markdown
   ## Doc Gate Obligation
@@ -48,7 +48,7 @@ agents/
     primary author of BRAND.md; the developer-agent is secondary/verify-only.
   ```
 
-- [ ] **Step 2:** Remove the stale `refresh-architecture.mjs` reference from `agents/developer-agent.md` (line 362).
+- [x] **Step 2:** Remove the stale `refresh-architecture.mjs` reference from `agents/developer-agent.md` (line 362).
 
   Delete this entire bullet:
   ```
@@ -57,7 +57,7 @@ agents/
 
   This reference is obsolete — the new system uses `<!-- auto:* -->` markers and the `doc-refresh-script.sh` pre-commit hook, not a standalone `refresh-architecture.mjs` script.
 
-- [ ] **Step 3:** Add a "Doc Gate Obligation" section to `agents/developer-agent.md`. Append at the end of the file (after the "Framework-Specific Notes" section — note that Step 2's deletion shifts line numbers, so append after the last line).
+- [x] **Step 3:** Add a "Doc Gate Obligation" section to `agents/developer-agent.md`. Append at the end of the file (after the "Framework-Specific Notes" section — note that Step 2's deletion shifts line numbers, so append after the last line).
 
   ```markdown
   ## Doc Gate Obligation
@@ -76,9 +76,9 @@ agents/
     implementation.
   ```
 
-- [ ] **Step 4:** Verify: designer-agent obligation matches the mapping table row ("BRAND.md, primary owner, all sections"). Developer-agent obligation matches the mapping table row ("ARCHITECTURE.md, CLAUDE.md, BRAND.md verify-only"). The `refresh-architecture.mjs` reference is fully removed with no orphaned text.
+- [x] **Step 4:** Verify: designer-agent obligation matches the mapping table row ("BRAND.md, primary owner, all sections"). Developer-agent obligation matches the mapping table row ("ARCHITECTURE.md, CLAUDE.md, BRAND.md verify-only"). The `refresh-architecture.mjs` reference is fully removed with no orphaned text.
 
-- [ ] **Step 5:** Commit: `docs(agents): add doc-gate obligations to designer-agent and developer-agent; remove stale refresh-architecture.mjs reference`
+- [x] **Step 5:** Commit: `docs(agents): add doc-gate obligations to designer-agent and developer-agent; remove stale refresh-architecture.mjs reference`
 
 ---
 
@@ -96,7 +96,7 @@ agents/
 
 #### Steps
 
-- [ ] **Step 1:** Add a "Doc Gate Obligation" section to `agents/content-agent.md`. Insert at the end of the file, after the "Output Format" section (after line 318).
+- [x] **Step 1:** Add a "Doc Gate Obligation" section to `agents/content-agent.md`. Insert at the end of the file, after the "Output Format" section (after line 318).
 
   ```markdown
   ## Doc Gate Obligation
@@ -109,7 +109,7 @@ agents/
     (`.site-builder/content/*.md`) must be added to the glossary table.
   ```
 
-- [ ] **Step 2:** Add a "Doc Gate Obligation" section to `agents/social-integration-agent.md`. Insert at the end of the file, after the "Output Format" section (after line 128).
+- [x] **Step 2:** Add a "Doc Gate Obligation" section to `agents/social-integration-agent.md`. Insert at the end of the file, after the "Output Format" section (after line 128).
 
   ```markdown
   ## Doc Gate Obligation
@@ -122,9 +122,9 @@ agents/
     `.site-builder/integration-reports/social-integration.md`.
   ```
 
-- [ ] **Step 3:** Verify: content-agent obligation matches the mapping table row ("CONTEXT.md, Glossary"). Social-integration-agent obligation matches the mapping table row ("ARCHITECTURE.md, Integrations").
+- [x] **Step 3:** Verify: content-agent obligation matches the mapping table row ("CONTEXT.md, Glossary"). Social-integration-agent obligation matches the mapping table row ("ARCHITECTURE.md, Integrations").
 
-- [ ] **Step 4:** Commit: `docs(agents): add doc-gate obligations to content-agent and social-integration-agent`
+- [x] **Step 4:** Commit: `docs(agents): add doc-gate obligations to content-agent and social-integration-agent`
 
 ---
 
@@ -142,7 +142,7 @@ agents/
 
 #### Steps
 
-- [ ] **Step 1:** Add a "Doc Gate Obligation" section to `agents/analytics-agent.md`. Insert at the end of the file, after the "Output Format" section (after line 192).
+- [x] **Step 1:** Add a "Doc Gate Obligation" section to `agents/analytics-agent.md`. Insert at the end of the file, after the "Output Format" section (after line 192).
 
   ```markdown
   ## Doc Gate Obligation
@@ -156,7 +156,7 @@ agents/
     `.site-builder/integration-reports/analytics.md`.
   ```
 
-- [ ] **Step 2:** Add a "Doc Gate Obligation" section to `agents/seo-indexing-agent.md`. Insert at the end of the file, after the "Output Format" section (after line 231).
+- [x] **Step 2:** Add a "Doc Gate Obligation" section to `agents/seo-indexing-agent.md`. Insert at the end of the file, after the "Output Format" section (after line 231).
 
   ```markdown
   ## Doc Gate Obligation
@@ -170,9 +170,9 @@ agents/
     `.site-builder/integration-reports/seo-indexing.md`.
   ```
 
-- [ ] **Step 3:** Verify: analytics-agent obligation matches the mapping table row ("CLAUDE.md, analytics config reference"). SEO-indexing-agent obligation matches the mapping table row ("CLAUDE.md, indexing config reference").
+- [x] **Step 3:** Verify: analytics-agent obligation matches the mapping table row ("CLAUDE.md, analytics config reference"). SEO-indexing-agent obligation matches the mapping table row ("CLAUDE.md, indexing config reference").
 
-- [ ] **Step 4:** Commit: `docs(agents): add doc-gate obligations to analytics-agent and seo-indexing-agent`
+- [x] **Step 4:** Commit: `docs(agents): add doc-gate obligations to analytics-agent and seo-indexing-agent`
 
 ---
 
