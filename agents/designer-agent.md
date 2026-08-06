@@ -399,3 +399,13 @@ Write `.site-builder/design-system.md` with this structure:
 ## Dark Mode (if applicable)
 [Dark mode token mappings]
 ```
+
+## Doc Gate Obligation
+
+After this agent completes, the orchestrator verifies the following docs
+per the agent-indexed mapping in `skills/site-builder/reference/doc-refresh.md`:
+
+- **`BRAND.md`** (primary owner) — All sections: colors, typography,
+  spacing, component patterns. Content must reflect the design tokens
+  produced in `.site-builder/design-system.md`. The designer-agent is the
+  primary author of BRAND.md; the developer-agent is secondary/verify-only.
