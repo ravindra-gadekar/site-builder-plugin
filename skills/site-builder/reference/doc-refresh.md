@@ -1,137 +1,188 @@
 # Doc Refresh Mechanism
 
-How CONTEXT.md, ARCHITECTURE.md, and CLAUDE.md stay in sync with code
-changes throughout the site-builder pipeline and beyond.
+How `CONTEXT.md`, `ARCHITECTURE.md`, `BRAND.md`, and `CLAUDE.md` stay in
+sync with code changes throughout the site-builder pipeline and beyond.
 
 ---
 
-## Two-Layer Refresh System
+## Overview
+
+Two layers keep client-project docs current:
 
 | Layer | Trigger | What it does |
 |---|---|---|
-| **Layer 1: Pipeline-phase refresh** | Orchestrator completes a phase | Updates the specific docs that phase affects |
-| **Layer 2: Pre-commit hook** | Every `git commit` | Auto-stages already-refreshed docs into the commit |
-
-Layer 1 keeps docs fresh. Layer 2 ensures they ship with the code.
+| **Layer 1: Agent-indexed checklist gate** | Orchestrator completes a phase or Update Mode agent run | Verifies judgment-content sections in mapped docs match the agent's output |
+| **Layer 2: Mechanical-facts pre-commit script** | Every `git commit` | Patches mechanical sections inside `<!-- auto:* -->` markers from source files on disk |
 
 ---
 
-## Layer 1: Pipeline-Phase Refresh
+## Layer 1: Agent-Indexed Checklist Gate
 
-The orchestrator updates docs at specific pipeline boundaries. This is
-not a hook — it is explicit orchestrator logic at the end of each phase.
+### Agent → Doc Mapping
 
-### Refresh Mapping
+This is the authoritative table for the entire system.
 
-| After phase | Docs refreshed | What changes |
+| Agent | Docs it must refresh | Sections affected |
 |---|---|---|
-| Phase 1 DISCOVER | `CONTEXT.md` | Entities, glossary, data flow from project brief |
-| Phase 2 ARCHITECT | `CONTEXT.md`, `CLAUDE.md` | Conventions, decisions; tech stack confirmed |
-| Phase 3 PREPARE | `ARCHITECTURE.md`, `CLAUDE.md` | Directory structure, patterns, entry points; build commands |
-| Phase 6 DEVELOP | `ARCHITECTURE.md` | Finalized component tree, routes, dependencies |
-| Phase 9 DEPLOY | `CLAUDE.md` | Deployment target, CI/CD info |
+| discovery-agent | `CONTEXT.md` | Entities, Glossary, Data Flow |
+| architect-agent | `CONTEXT.md`, `CLAUDE.md` | Conventions, Decisions; Tech Stack |
+| developer-agent | `ARCHITECTURE.md`, `CLAUDE.md`, `BRAND.md` | Directory Structure, Patterns, Entry Points, Dependencies; Build & Dev commands (CLAUDE.md marker block); verify BRAND.md tokens match design-system.md (Phase 6 only — not Phase 3, when design-system.md does not yet exist) |
+| designer-agent | `BRAND.md` (primary owner) | All sections (colors, typography, spacing, component patterns) |
+| content-agent | `CONTEXT.md` | Glossary (new terms from content) |
+| deploy-agent | `CLAUDE.md` | Deployment target, CI/CD |
+| analytics-agent | `CLAUDE.md` | Analytics config reference |
+| seo-indexing-agent | `CLAUDE.md` | Indexing config reference |
+| social-integration-agent | `ARCHITECTURE.md` | Integrations |
 
-### Refresh Procedure
+### Gate Enforcement Procedure
 
-For each doc listed in the mapping:
+After every agent completes:
 
-1. Read the current file contents in full.
-2. Identify the sections that the phase's output affects (see table
-   above — e.g., Phase 1 DISCOVER affects CONTEXT.md's Entities,
-   Glossary, and Data Flow sections).
-3. Update only those sections with data from the phase output (e.g.,
-   `.site-builder/project-brief.md` for Phase 1).
-4. For CLAUDE.md: only modify content inside the `<!-- site-builder:start
-   -->` / `<!-- site-builder:end -->` marker block. Never touch content
-   outside the markers.
-5. Write the updated file.
+1. Read each doc listed for that agent.
+2. Verify the relevant sections reflect the agent's output.
+3. State what was checked (e.g., "ARCHITECTURE.md directory tree updated to
+   reflect new `/api` route") before proceeding.
 
-This is surgical — the refresh replaces specific section content, not
-the entire document. Manual edits outside the affected sections (and
-outside CLAUDE.md's marker block) are preserved.
+This is the same "must state what you checked" pattern as Phase 7's audit
+quality gate.
+
+### Audit Agents Excluded By Design
+
+The 6 audit agents (seo-audit, technical-audit, content-quality, ai-search,
+schema-audit, accessibility-audit) are absent from the mapping
+intentionally — they are read-only analyzers whose findings are acted on by
+content-agent and developer-agent, which ARE in the mapping. Do not add
+doc-gate obligations to audit agents during implementation.
 
 ---
 
-## Layer 2: Pre-commit Hook (Auto-staging)
+## Layer 2: Mechanical-Facts Pre-Commit Script
 
-A POSIX `sh` script installed in `.git/hooks/pre-commit` during Init.
-Its only job is to stage already-refreshed doc files into the current
-commit so they travel with the code changes that prompted the refresh.
+A POSIX `sh` script template at `reference/doc-refresh-script.sh`, installed
+into `.git/hooks/pre-commit` during Init.
 
-### Hook Script
+### What It Patches
 
-```sh
-# >>> site-builder:docs (do not edit this block) >>>
-# Site Builder — auto-stage refreshed project docs
-for f in CONTEXT.md ARCHITECTURE.md CLAUDE.md; do
-  if [ -f "$f" ] && git diff --name-only | grep -qx "$f"; then
-    git add "$f"
-  fi
-done
-# <<< site-builder:docs <<<
-```
+| Doc | Sections handled by script | Auto-marker name | Source |
+|---|---|---|---|
+| `ARCHITECTURE.md` | Directory Structure | `auto:directory-structure` | `find . -maxdepth 2` excluding node_modules/.git/gitignored |
+| `ARCHITECTURE.md` | Dependencies | `auto:dependencies` | `package.json` dependencies + devDependencies |
+| `ARCHITECTURE.md` | Build & Dev | `auto:build-dev` | `package.json` scripts |
+| `BRAND.md` | Color tokens | `auto:color-tokens` | `.site-builder/design-system.md` color token blocks |
+| `BRAND.md` | Font stack | `auto:font-stack` | `.site-builder/design-system.md` typography section |
+| `BRAND.md` | Spacing scale | `auto:spacing-scale` | `.site-builder/design-system.md` spacing section |
 
-### Behavior
+### What It Does NOT Patch
 
-| Condition | Action |
+Agent/phase counts in `CLAUDE.md` (those are plugin-repo values, not client
+-project values). CLAUDE.md's Build & Dev commands are refreshed by the
+developer-agent gate (Layer 1), not the script.
+
+### Script Behavior
+
+Reads source files, extracts mechanical values, patches only content
+between `<!-- auto:X -->` / `<!-- /auto:X -->` markers using sed/awk. Exits
+0 on every error path.
+
+**CRLF handling:** preprocesses input with `tr -d '\r'` before sed/awk
+pattern matching.
+
+---
+
+## Section Ownership Boundary
+
+Each auto-managed section is wrapped in `<!-- auto:* -->` markers.
+
+- The script (Layer 2) only writes inside these markers.
+- The agent gate (Layer 1) only writes outside them.
+- Neither touches the other's territory.
+
+**Exception — `auto:build-commands` in CLAUDE.md:** This marker exists
+solely so its content survives site-builder marker-block replacement
+(the nested-marker preservation rule). It is owned by the developer-agent
+gate (Layer 1), NOT the pre-commit script. The script never patches
+CLAUDE.md. This is the only `auto:*` marker where Layer 1 writes inside
+the markers rather than outside them.
+
+---
+
+## Intra-Phase Reminder (PostToolUse Hook)
+
+The PostToolUse hook (`echo 'Docs may be stale...'`) is retained as an
+intra-phase nudge. It fires during agent work; the gate fires at phase
+boundaries. Different scope, both useful.
+
+The echo message mentions BRAND.md alongside ARCHITECTURE.md and
+CONTEXT.md.
+
+**Label:** "Intra-phase reminder" (not "Layer 1" — that label now belongs
+to the gate).
+
+---
+
+## Nested Marker Rule for CLAUDE.md
+
+Auto-markers can appear inside the `<!-- site-builder:start -->` /
+`<!-- site-builder:end -->` block. When replacing site-builder marker block
+content, the orchestrator must preserve nested `<!-- auto:* -->` blocks and
+their content. The orchestrator replaces only the text outside auto-markers
+within the site-builder block.
+
+---
+
+## Staleness Windows
+
+| Scenario | How long docs can be stale | Why acceptable |
+|---|---|---|
+| Mid-phase (agent still running) | Minutes | Agent hasn't finished producing the data yet |
+| Between phase boundary and next commit | Until next commit | Layer 2 catches mechanical facts; Layer 1 already caught judgment facts at boundary |
+| Outside a Claude session (manual code edits) | Until next commit | Layer 2 script still fires — mechanical facts stay fresh. Judgment sections may drift, caught on next pipeline run |
+| Update Mode | Zero after Doc Refresh Gate | Hard gate blocks deploy until docs verified |
+
+---
+
+## Error Handling
+
+### Layer 1 Gate failures
+
+| Failure | Recovery |
 |---|---|
-| Doc file has unstaged changes (`git diff`) | `git add` it into the commit |
-| Doc file is unchanged | Skip silently |
-| Doc file doesn't exist | Skip silently |
+| Orchestrator skips gate (context pressure) | Layer 2 catches mechanical facts. Judgment sections stay stale until next agent run. |
+| Doc file doesn't exist when gate fires | Gate creates it from template. Log: "Created missing [doc] from template." |
+| Agent's `.site-builder/` output file is missing (phase skipped) | Skip refresh for that doc. Log: "No [file] found — skipping [doc] refresh." Do not create a doc with empty content. |
+| Orchestrator states "checked" without actually updating (hallucinated compliance) | No programmatic defense. Mitigated by: (a) requiring the orchestrator to name what specifically changed; (b) Layer 2 catching the mechanical subset independently. |
 
-The hook **never refreshes or regenerates docs** — it only stages files
-that were already updated by Layer 1 or by manual editing. All
-intelligence lives in the orchestrator, not in scripts.
+### Layer 2 Script failures
 
-### Hook Installation
+| Failure | Recovery |
+|---|---|
+| Source file missing (`.site-builder/design-system.md`, `package.json`) | Skip that section's patching. Exit 0 — never block the commit. |
+| Source file malformed (unparseable JSON) | Skip section. Log to stderr. Exit 0. |
+| Auto-markers missing from doc file | Skip that section. Never write outside markers. Exit 0. |
+| Script syntax error (bug in shipped template) | Pre-commit hook fails, `git commit` aborts. User can `git commit --no-verify` to bypass. |
+| Windows without Git Bash sh | `.git/hooks/pre-commit` runs under Git Bash's sh. If unavailable, commit proceeds without hook. |
 
-Installed during Init (Section 2.5), after doc generation. The script is
-wrapped in its own marker block (`site-builder:docs`) so it coexists with
-other hooks:
+### Update Mode gate failures
 
-- If `.git/hooks/pre-commit` doesn't exist: create it with `#!/bin/sh`
-  shebang, then append the marker block.
-- If it exists but has no `site-builder:docs` marker: append the marker
-  block at the end.
-- If it exists and already has the marker: replace the existing marker
-  block content.
-- If the gitignore setup (Section 2 of Init, see `reference/gitignore.md`)
-  also installed a pre-commit hook with its own marker block
-  (`site-builder:gitignore`), both coexist — each marker block is
-  independent.
+| Failure | Recovery |
+|---|---|
+| Gate blocks deploy, user wants to ship anyway | Orchestrator offers: "Doc refresh incomplete for [list]. Deploy anyway, or let me finish the refresh first?" User can override. |
+| No agents ran (manual change outside pipeline) | Skip step 4, proceed to deploy. Layer 2 still patches mechanical facts on commit. |
 
-Make the hook executable: `chmod +x .git/hooks/pre-commit` (no-op on
-Windows, required on macOS/Linux).
+### Key principle
 
-### POSIX Compliance
-
-The hook uses only POSIX `sh` syntax — no bash arrays, `[[ ]]`, or
-herestrings. This ensures it runs under `dash`, `ash`, and `busybox sh`,
-not just `bash`.
+Layer 2 never blocks commits on doc-refresh failure. It exits 0 on every
+error path. A broken refresh script must never prevent a user from
+committing their actual code.
 
 ---
 
-## Manual Refresh
+## Hook Installation
 
-If docs feel stale or the user wants to force-update everything, the
-orchestrator can re-run the Init doc generation logic (Section 2.5) at
-any time. This re-scans the project and updates all three docs, but
-still uses the non-destructive procedures:
-
-- CONTEXT.md and ARCHITECTURE.md: sections are replaced with current
-  data, but document structure and any manual additions are preserved.
-- CLAUDE.md: only the marker block is replaced. User content outside
-  the markers is untouched.
-
----
-
-## Key Principle
-
-The pre-commit hook never refreshes docs — it only stages them. All
-intelligence lives in the orchestrator (Claude), not in scripts. This
-means:
-
-- Commits made outside a Claude session may have stale docs (the hook
-  stages whatever state the docs are in, but nobody refreshed them).
-- On the next pipeline run or manual refresh, docs catch up.
-- This is acceptable — the hook is a convenience, not a guarantee.
+- Installed during Init (Section 2.5), after doc generation.
+- The pre-commit hook now contains BOTH the auto-staging logic (for docs
+  refreshed by Layer 1) AND the mechanical-facts patching script (Layer 2).
+- Both use the `site-builder:docs` marker block in `.git/hooks/pre-commit`.
+- Coexists with the gitignore hook's `site-builder:gitignore` marker block.
+- Installation rules: create if absent, append if no marker, replace if
+  marker exists.

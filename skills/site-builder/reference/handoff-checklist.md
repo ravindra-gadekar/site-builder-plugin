@@ -58,6 +58,13 @@ Final checklist before the deploy agent sets up CI/CD and pushes to production. 
 - [ ] Environment variables listed and documented
 - [ ] DNS/domain instructions provided (if applicable)
 
+### Documentation
+- [ ] BRAND.md present in project root and populated with design tokens (not placeholder text)
+- [ ] All `<!-- auto:* -->` marker sections in ARCHITECTURE.md populated with current data (directory tree, dependencies, build commands)
+- [ ] All `<!-- auto:* -->` marker sections in BRAND.md populated with current data (color tokens, font stack, spacing scale) — skip if before Phase 4 DESIGN
+- [ ] CONTEXT.md entities and glossary reflect the built website
+- [ ] CLAUDE.md marker block contains current tech stack, build commands, and deployment info
+
 ## Client Handoff Package
 
 The deploy agent produces this package for the client:

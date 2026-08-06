@@ -129,12 +129,14 @@ and integrations finalize the architecture).
 
 ## Directory Structure
 
+<!-- auto:directory-structure -->
 ```text
 <project-root>/
 ├── <dir>/          # <purpose>
 ├── <dir>/          # <purpose>
 └── <file>          # <purpose>
 ```
+<!-- /auto:directory-structure -->
 
 ## Key Patterns
 
@@ -156,6 +158,7 @@ and integrations finalize the architecture).
 
 ## Dependencies
 
+<!-- auto:dependencies -->
 ### Runtime
 
 | Dependency | Purpose |
@@ -167,15 +170,18 @@ and integrations finalize the architecture).
 | Dependency | Purpose |
 |---|---|
 | <name> | <what it provides — e.g., bundler, linter, testing> |
+<!-- /auto:dependencies -->
 
 ## Build & Dev
 
+<!-- auto:build-dev -->
 ```bash
 <install command>     # install dependencies
 <dev command>         # start dev server
 <build command>       # build for production
 <preview command>     # preview production build locally
 ```
+<!-- /auto:build-dev -->
 
 ## Testing
 
@@ -244,6 +250,7 @@ When no `CLAUDE.md` exists:
 
 <framework, language, CSS approach, key libraries — summarized>
 
+<!-- auto:build-commands -->
 ## Build & Development Commands
 
 ```bash
@@ -252,6 +259,7 @@ When no `CLAUDE.md` exists:
 <build command>       # build for production
 <preview command>     # preview production build
 ```
+<!-- /auto:build-commands -->
 
 ## Git Workflow
 
@@ -266,9 +274,10 @@ When you need to understand the project:
 
 1. **Read CONTEXT.md** — domain model, data flow, conventions
 2. **Read ARCHITECTURE.md** — directory structure, patterns, entry points
-3. **Read `.site-builder/project-brief.md`** — business requirements
-4. **Read `.site-builder/site-architecture.md`** — technical decisions
-5. **Read source files** — only when the above don't answer your question
+3. **Read BRAND.md** — design tokens, typography, component patterns
+4. **Read `.site-builder/project-brief.md`** — business requirements
+5. **Read `.site-builder/site-architecture.md`** — technical decisions
+6. **Read source files** — only when the above don't answer your question
 
 ## Site Builder Pipeline State
 
@@ -305,8 +314,51 @@ When `CLAUDE.md` already exists, append only the marker block:
 2. **Updating:** Replace everything between the markers (exclusive of
    the markers themselves).
 3. **Never touch content outside the markers.** That belongs to the user.
-4. **Blank line before start marker** and after end marker for clean
+4. **Preserve nested auto-markers.** When replacing content between the
+   site-builder markers, the orchestrator must preserve any nested
+   `<!-- auto:* -->` / `<!-- /auto:* -->` blocks and their content. Replace
+   only the text outside auto-markers within the site-builder block.
+5. **Blank line before start marker** and after end marker for clean
    rendering.
+
+**Note on `auto:build-commands`:** Unlike other `auto:*` markers (which
+are owned by the pre-commit script / Layer 2), `auto:build-commands` in
+CLAUDE.md is owned by the developer-agent gate (Layer 1). It exists
+solely so its content survives site-builder marker-block replacement —
+the pre-commit script never patches CLAUDE.md. See
+`reference/doc-refresh.md` Section 4 for the full ownership boundary.
+
+---
+
+## 4. BRAND.md
+
+**Location:** Project root (`BRAND.md`)
+**Purpose:** Design tokens — colors, typography, spacing, and component
+patterns. Single source of truth for visual identity outside `.site-builder/`.
+**Created by:** Init (Section 2.5), after `ARCHITECTURE.md`, before `CLAUDE.md`
+**Updated by:** designer-agent (primary owner, Phase 4 DESIGN),
+developer-agent (verify-only, Phase 6 DEVELOP), pre-commit script
+(mechanical token sections only via auto-markers)
+
+### Template
+
+See `reference/brand-template.md` for the full template, auto-marker
+placement, and population rules.
+
+### Auto-Marker Sections
+
+Three sections are wrapped in `<!-- auto:* -->` markers and managed by
+the pre-commit script (Layer 2):
+
+| Marker | Section | Source |
+|---|---|---|
+| `auto:color-tokens` | Colors table | `.site-builder/design-system.md` ### Colors |
+| `auto:font-stack` | Typography table | `.site-builder/design-system.md` ### Typography |
+| `auto:spacing-scale` | Spacing table | `.site-builder/design-system.md` ### Spacing |
+
+All other sections (Brand Direction, Shadows, Border Radius, Transitions,
+Component Patterns, Dark Mode) are judgment content managed by the
+designer-agent gate (Layer 1) only.
 
 ---
 
@@ -318,7 +370,9 @@ During Init, docs are created in this order:
    existing project files; enriched later by Phase 1 DISCOVER)
 2. `ARCHITECTURE.md` — directory structure and patterns (populated from
    current project state; enriched after Phase 3 PREPARE scaffold)
-3. `CLAUDE.md` — last, because it references the other docs
+3. `BRAND.md` — design tokens (populated from existing CSS/Tailwind config
+   or placeholders; enriched by Phase 4 DESIGN)
+4. `CLAUDE.md` — last, because it references the other docs
 
 This order ensures each file can reference files created before it.
 
@@ -329,14 +383,15 @@ This order ensures each file can reference files created before it.
 At init time, the project may be empty (greenfield) or have an existing
 codebase. The orchestrator populates whatever it can from what's on disk:
 
-| Project state | CONTEXT.md | ARCHITECTURE.md | CLAUDE.md |
-|---|---|---|---|
-| Empty (only `.git/`) | Placeholder sections | Placeholder sections | Skeleton with marker block |
-| Existing codebase | Entities from file names, data flow from routes | Full directory listing, deps from package.json, build commands | Populated tech stack and commands |
+| Project state | CONTEXT.md | ARCHITECTURE.md | BRAND.md | CLAUDE.md |
+|---|---|---|---|---|
+| Empty (only `.git/`) | Placeholder sections | Placeholder sections | Placeholder tokens | Skeleton with marker block |
+| Existing codebase | Entities from file names, data flow from routes | Full directory listing, deps from package.json, build commands | Tokens from CSS/Tailwind config | Populated tech stack and commands |
 
 In both cases, the pipeline enriches these docs as it progresses:
 - Phase 1 DISCOVER → CONTEXT.md (entities, glossary, data flow)
 - Phase 2 ARCHITECT → CONTEXT.md (conventions, decisions), CLAUDE.md (tech stack confirmed)
 - Phase 3 PREPARE → ARCHITECTURE.md (directory structure, patterns, entry points), CLAUDE.md (build commands)
+- Phase 4 DESIGN → BRAND.md (all design tokens and component patterns from design-system.md)
 - Phase 6 DEVELOP → ARCHITECTURE.md (finalized component tree, routes)
 - Phase 9 DEPLOY → CLAUDE.md (deployment info)

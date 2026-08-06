@@ -111,7 +111,21 @@ The site-builder pipeline has 11 sequential phases. Each phase maps to one or mo
 ## Update Mode
 
 When the orchestrator detects an existing `.site-builder/` directory:
-1. Enter update mode — ask user what needs changing
-2. Map requested changes to minimum set of agents
-3. Run only those agents + audit loop for changed areas
-4. Deploy through existing CI/CD pipeline
+1. **Re-validate design against current ruleset** — read `.site-builder/design-system.md`, check against `reference/design-principles.md`. If violations found, surface suggestions. If accepted, re-run designer-agent. If dismissed or none found, proceed.
+2. Ask the user what needs changing
+3. Map changes to minimum set of agents:
+   - "Update homepage copy" → content-agent + developer-agent + audit loop
+   - "Change colors" → designer-agent + developer-agent + audit loop
+   - "Add a new page" → architect-agent + content-agent + developer-agent + audit loop
+   - "Fix SEO issues" → seo-audit-agent + developer-agent/content-agent
+   - "Refresh the design" → designer-agent (with UI UX Pro Max re-query) + developer-agent + audit loop
+4. Run only those agents
+5. Re-audit changed areas
+6. **Doc Refresh Gate** — for each agent that ran in step 4, look up its doc obligations in the agent→doc mapping (`reference/doc-refresh.md` Section 2). Read each mapped doc. Verify the relevant sections reflect the agent's output. State what was checked. Block deploy until all agents' docs are verified. If no agents ran (manual change outside pipeline), skip — Layer 2 still patches mechanical facts on commit.
+7. Deploy through existing CI/CD pipeline
+
+### Agent→Doc Mapping Reference
+
+See `reference/doc-refresh.md` Section 2 for the full agent→doc mapping
+table. The orchestrator uses this table to determine which docs to verify
+for each agent in step 6.

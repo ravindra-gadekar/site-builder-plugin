@@ -359,7 +359,6 @@ Before marking the phase complete:
 - **Grid reading order:** When rendering lists in multi-column grids (footer links, feature grids), use explicit column slicing (`items.slice(0, perCol)` per column div) instead of CSS auto-flow grid. CSS grid auto-flow goes left-to-right across rows, but users scan lists top-to-bottom within columns.
 - **Visible author/dates on homepage:** Add a visible author byline and "Last updated: [date]" to the homepage. Use `rel="author"` on the author link. This is a content freshness signal for both traditional SEO and AEO.
 - **Package.json path verification:** Check all relative paths in `package.json` scripts (especially `prepare`, `postinstall`, hooks). Paths inherited from a monorepo or template may not work in a standalone project.
-- **Architecture refresh setup:** If the project has `ARCHITECTURE.md` or `BRAND.md` with `<!-- AUTO-GENERATED -->` markers but no `refresh-architecture.mjs` script, set up the refresh script and pre-commit hook during PREPARE phase.
 
 ## Framework-Specific Notes
 
@@ -369,3 +368,18 @@ Always read the adapter file for framework-specific patterns. Key differences:
 - **Next.js:** App Router (`app/`), `metadata` export for SEO, `next/image` for images, API routes for forms
 - **Vue/Nuxt:** `.vue` SFCs, `useSeoMeta()` for SEO, `nuxt/image` for images, server routes for forms
 - **React SPA:** React Router, `react-helmet` for SEO, client-side routing
+
+## Doc Gate Obligation
+
+After this agent completes, the orchestrator verifies the following docs
+per the agent-indexed mapping in `skills/site-builder/reference/doc-refresh.md`:
+
+- **`ARCHITECTURE.md`** — Directory Structure, Patterns, Entry Points,
+  Dependencies sections must reflect the current codebase state.
+- **`CLAUDE.md`** — Build & Dev commands inside the `<!-- site-builder:start
+  -->` marker block must match `package.json` scripts.
+- **`BRAND.md`** (secondary/verify-only, Phase 6 DEVELOP only — not
+  Phase 3 PREPARE, when `.site-builder/design-system.md` does not yet
+  exist) — Verify token values match `.site-builder/design-system.md`. Do
+  not overwrite designer-agent content unless values have diverged during
+  implementation.
