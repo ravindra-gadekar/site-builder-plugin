@@ -125,16 +125,20 @@ as it progresses (see `reference/doc-refresh.md` for the agent-indexed
 refresh mapping).
 
 **Pre-commit hook for doc refresh:** After generating docs, install the
-pre-commit hook into `.git/hooks/pre-commit`. The hook performs two jobs:
+pre-commit hook into `.git/hooks/pre-commit`. The hook performs three jobs:
 
 1. **Mechanical-facts patching (Layer 2):** Runs the script from
    `reference/doc-refresh-script.sh` to patch `<!-- auto:* -->` marker
    sections in `ARCHITECTURE.md` and `BRAND.md` from source files on disk
-   (directory tree, package.json, design-system.md). See
-   `reference/doc-refresh.md` Section 3 for details.
+   (directory tree, package.json, design-system.md or Tailwind config
+   fallback). See `reference/doc-refresh.md` Section 3 for details.
 2. **Auto-staging:** Stages any doc files with unstaged changes
    (`CONTEXT.md`, `ARCHITECTURE.md`, `BRAND.md`, `CLAUDE.md`) into the
    commit so refreshed docs travel with code changes.
+3. **Soft-blocking gate:** Scans staged code files against doc-relevance
+   patterns and warns (exit 1) if matching docs have no changes. Developers
+   can bypass with `git commit --no-verify`. See `reference/doc-refresh.md`
+   Section 3a for details.
 
 The orchestrator embeds the full content of `reference/doc-refresh-script.sh`
 verbatim into the `site-builder:docs` marker block — the hook cannot
@@ -147,6 +151,15 @@ with the gitignore hook from Section 2.
 If doc generation or hook installation fails for any reason: warn and
 continue — the pipeline does not depend on these docs existing. They are
 a quality-of-life improvement, not a gate.
+
+**Targeted refresh-hint script:** Copy the content of
+`reference/refresh-hint.sh` to `.site-builder/refresh-hint.sh` in the
+client project. This script is called by the PostToolUse hook (Section 2.6)
+to provide targeted doc-refresh hints during Claude sessions. Like the
+pre-commit hook, it is overwritten on re-init — when the plugin is updated
+via `npx skills update` and the user re-runs `/site-builder --init`, the
+orchestrator replaces `.site-builder/refresh-hint.sh` with the current
+template.
 
 ### 2.6. Claude Code Settings (`.claude/settings.json`)
 
@@ -182,7 +195,7 @@ object — never overwrite user-configured hooks or permissions.
         "hooks": [
           {
             "type": "command",
-            "command": "echo '>> Docs may be stale. If you changed exports, schemas, or domain concepts, update the relevant ARCHITECTURE.md, CONTEXT.md, and BRAND.md sections now.'"
+            "command": "sh .site-builder/refresh-hint.sh"
           }
         ]
       }
@@ -197,18 +210,23 @@ object — never overwrite user-configured hooks or permissions.
   agents use frequently, so the user is not prompted for permission on
   every PR creation or docs lookup. The user can always revoke or adjust
   these in settings.
-- **`hooks.PostToolUse`** — Intra-phase reminder for the doc-refresh
+- **`hooks.PostToolUse`** — Targeted doc-refresh hint for the doc-refresh
   system (see `reference/doc-refresh.md` Section 5). After every `Edit`
-  or `Write` during a Claude session, echoes a reminder to refresh
-  project docs if relevant files changed. This fires during agent work;
-  the agent-indexed gate (Layer 1) fires at phase boundaries.
+  or `Write` during a Claude session, runs `.site-builder/refresh-hint.sh`
+  which pattern-matches the changed file and outputs a targeted hint
+  naming the specific doc and section to update — or nothing for
+  irrelevant files. This fires during agent work; the agent-indexed gate
+  (Layer 1) fires at phase boundaries.
 
 **Merge rules:**
 
 - If `permissions.allow` already exists, append new entries that are not
   already in the array. Never duplicate.
 - If `hooks.PostToolUse` already exists, check if a hook with the same
-  `command` string is already present. If so, skip. If not, append.
+  `command` string is already present. If so, skip. If not, append. If
+  the old blanket-echo PostToolUse command (the previous doc-refresh
+  reminder, superseded by `refresh-hint.sh`) is found, replace it with
+  the new targeted hint command.
 - Preserve all existing user entries in both sections.
 
 ### 3. context7 MCP (Required)
