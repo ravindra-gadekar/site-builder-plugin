@@ -276,7 +276,7 @@ skills/site-builder/
 
 **Steps:**
 
-- [ ] **Step 1:** In `skills/site-builder/reference/doc-templates.md`, update the "File Creation Order" section (currently lines 366-377). Add `refresh-hint.sh` to the list. After item 4 (`CLAUDE.md`), the post-doc setup items should note:
+- [x] **Step 1:** In `skills/site-builder/reference/doc-templates.md`, update the "File Creation Order" section (currently lines 366-377). Add `refresh-hint.sh` to the list. After item 4 (`CLAUDE.md`), the post-doc setup items should note:
 
   ```markdown
   After docs are created:
@@ -288,7 +288,7 @@ skills/site-builder/
 
   If step 6 (pre-commit hook) is already documented in this section, update its description to include "and soft-blocking gate". If not, add it.
 
-- [ ] **Step 2:** Final cross-reference verification across all modified files:
+- [x] **Step 2:** Final cross-reference verification across all modified files (all 8 checks passed; retitled the "Soft-blocking gate failures" heading to "Soft-Blocking Gate Failures" to satisfy the case-sensitive grep):
 
   | Check | Command | Expected |
   |---|---|---|
@@ -301,7 +301,7 @@ skills/site-builder/
   | doc-refresh-script.sh syntax valid | `sh -n skills/site-builder/reference/doc-refresh-script.sh` | Exit 0 |
   | refresh-hint.sh syntax valid | `sh -n skills/site-builder/reference/refresh-hint.sh` | Exit 0 |
 
-- [ ] **Step 3:** Commit: `docs(reference): add refresh-hint.sh to doc-templates Init file list`
+- [x] **Step 3:** Commit: `docs(reference): add refresh-hint.sh to doc-templates Init file list`
 
 ---
 
