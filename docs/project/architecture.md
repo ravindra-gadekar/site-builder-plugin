@@ -15,7 +15,7 @@ Site Builder Agents is a Claude Code skills plugin, not a running application. I
 ### Site Builder plugin
 
 - **Repo:** `.` (root)
-- **Purpose:** Ships the `site-builder` skill, its orchestrator, 14 phase agents, framework adapters, and reference standards that together drive a client website build from analysis through deployment.
+- **Purpose:** Ships the `site-builder` skill, its orchestrator, 15 phase agents, framework adapters, and reference standards that together drive a client website build from analysis through deployment.
 - **Tech:** Markdown-based Claude Code skill/agent definitions; distributed via the `skills` CLI.
 - **Communication:** No network communication of its own — it operates as in-session Claude Code instructions against whatever client repository it is installed into.
 
