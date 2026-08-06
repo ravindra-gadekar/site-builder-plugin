@@ -864,7 +864,14 @@ Check if `.site-builder/status.md` exists:
    - "Refresh the design" → designer-agent (with UI UX Pro Max re-query) + developer-agent + audit loop
 4. Run only those agents
 5. Re-audit changed areas
-6. Deploy through existing CI/CD
+6. **Doc Refresh Gate:** For each agent that ran in step 4, look up its
+   doc obligations in the agent→doc mapping (`reference/doc-refresh.md`
+   Section 2). Read each mapped doc. Verify the relevant sections reflect
+   the agent's output. State what was checked. Block deploy until all
+   agents' docs are verified. If no agents ran (manual change outside
+   pipeline), skip this step — Layer 2 still patches mechanical facts on
+   commit.
+7. Deploy through existing CI/CD
 
 ## Pipeline Execution
 
@@ -882,9 +889,9 @@ Check if `.site-builder/status.md` exists:
 
 Update `status.md`: Phase 1 DISCOVER → completed
 
-**Doc refresh:** Update `CONTEXT.md` — populate entities, glossary, and
-data flow sections from the approved project brief (see
-`reference/doc-refresh.md` Phase 1 mapping).
+**Doc Gate:** Verify `CONTEXT.md` — entities, glossary, and data flow
+sections reflect the approved project brief (`.site-builder/project-brief.md`).
+State what was checked before proceeding.
 
 ### Phase 2: ARCHITECT
 
@@ -900,9 +907,9 @@ data flow sections from the approved project brief (see
 
 Update `status.md`: Phase 2 ARCHITECT → completed
 
-**Doc refresh:** Update `CONTEXT.md` (conventions, decisions from
-architecture) and `CLAUDE.md` marker block (confirmed tech stack). See
-`reference/doc-refresh.md` Phase 2 mapping.
+**Doc Gate:** Verify `CONTEXT.md` — conventions and decisions sections
+reflect architecture output. Verify `CLAUDE.md` marker block — tech stack
+section reflects confirmed stack. State what was checked before proceeding.
 
 ### Phase 3: PREPARE
 
@@ -976,10 +983,10 @@ Commit: `feat: scaffold [framework] project`
 
 Update `status.md`: Phase 3 PREPARE → completed
 
-**Doc refresh:** Update `ARCHITECTURE.md` (directory structure, patterns,
-entry points, build commands from scaffolded project) and `CLAUDE.md`
-marker block (build commands). See `reference/doc-refresh.md` Phase 3
-mapping.
+**Doc Gate:** Verify `ARCHITECTURE.md` — directory structure, patterns,
+entry points, and dependencies sections reflect the scaffolded project.
+Verify `CLAUDE.md` marker block — build & dev commands section reflects
+`package.json` scripts. State what was checked before proceeding.
 
 ### Phase 4: DESIGN
 
@@ -995,6 +1002,10 @@ mapping.
 
 Update `status.md`: Phase 4 DESIGN → completed
 
+**Doc Gate:** Verify `BRAND.md` — designer-agent is primary owner. All
+sections (colors, typography, spacing, component patterns) must reflect
+`.site-builder/design-system.md`. State what was checked before proceeding.
+
 ### Phase 5: CONTENT
 
 1. Spawn `content-agent` with prompt:
@@ -1004,6 +1015,10 @@ Update `status.md`: Phase 4 DESIGN → completed
 3. **No approval gate** — flows directly to DEVELOP
 
 Update `status.md`: Phase 5 CONTENT → completed
+
+**Doc Gate:** Verify `CONTEXT.md` — glossary section includes any new
+terms introduced in the content (`.site-builder/content/*.md`). State
+what was checked before proceeding.
 
 ### Phase 6: DEVELOP (chunked execution)
 
@@ -1028,8 +1043,12 @@ The developer agent is the heaviest token consumer. Instead of one massive "buil
 
 Update `status.md`: Phase 6 DEVELOP → completed (only after all sub-tasks pass)
 
-**Doc refresh:** Update `ARCHITECTURE.md` (finalized component tree,
-routes, dependencies). See `reference/doc-refresh.md` Phase 6 mapping.
+**Doc Gate:** Verify `ARCHITECTURE.md` — directory structure, patterns,
+entry points, and dependencies sections reflect the finalized codebase.
+Verify `CLAUDE.md` marker block — build & dev commands still accurate.
+Verify `BRAND.md` — token values match `.site-builder/design-system.md`
+(verify-only — do not overwrite designer-agent content unless values
+diverged). State what was checked before proceeding.
 
 ### Phase 7: AUDIT (loop)
 
@@ -1083,6 +1102,10 @@ a live URL instead of a local build.
 
 Update `status.md`: Phase 8 INTEGRATE → completed
 
+**Doc Gate:** Verify `ARCHITECTURE.md` — integrations section reflects
+connected social platforms from `.site-builder/integration-reports/social-integration.md`.
+State what was checked before proceeding.
+
 ### Phase 9: DEPLOY
 
 0. **Ask hosting preference** (before spawning `deploy-agent`, in both demo
@@ -1126,8 +1149,9 @@ Update `status.md`: Phase 8 INTEGRATE → completed
 
 Update `status.md`: Phase 9 DEPLOY → completed
 
-**Doc refresh:** Update `CLAUDE.md` marker block (deployment target,
-CI/CD info). See `reference/doc-refresh.md` Phase 9 mapping.
+**Doc Gate:** Verify `CLAUDE.md` marker block — deployment target and
+CI/CD info sections reflect the deployment configuration. State what was
+checked before proceeding.
 
 ### Phase 10: ANALYTICS
 
@@ -1143,6 +1167,10 @@ CI/CD info). See `reference/doc-refresh.md` Phase 9 mapping.
    - On retry → re-run analytics-agent with corrected credentials
 
 Update `status.md`: Phase 10 ANALYTICS → completed
+
+**Doc Gate:** Verify `CLAUDE.md` marker block — analytics config reference
+reflects installed tracking platforms from `.site-builder/integration-reports/analytics.md`.
+State what was checked before proceeding.
 
 ### Phase 11: AUTO-INDEXING
 
@@ -1168,6 +1196,10 @@ Update `status.md`: Phase 10 ANALYTICS → completed
    - On retry → re-run `seo-indexing-agent` with corrected input
 
 Update `status.md`: Phase 11 AUTO-INDEXING → completed
+
+**Doc Gate:** Verify `CLAUDE.md` marker block — indexing config reference
+reflects IndexNow and RSS/feed configuration from `.site-builder/integration-reports/seo-indexing.md`.
+State what was checked before proceeding.
 
 ### Pipeline Complete
 
