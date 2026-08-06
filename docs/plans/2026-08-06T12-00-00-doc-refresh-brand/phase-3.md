@@ -28,7 +28,7 @@ skills/site-builder/
 
 #### Steps
 
-- [ ] **Step 1:** Modify Init Section 2.5 (lines 94–127). Apply the following changes:
+- [x] **Step 1:** Modify Init Section 2.5 (lines 94–127). Apply the following changes:
 
   **Change 1 — Add BRAND.md to the file list (line 96):**
 
@@ -131,7 +131,7 @@ skills/site-builder/
     markers.
   ```
 
-- [ ] **Step 2:** Modify Section 2.6 (lines 128–189). Apply two changes:
+- [x] **Step 2:** Modify Section 2.6 (lines 128–189). Apply two changes:
 
   **Change 1 — Update PostToolUse hook echo (line 162):**
 
@@ -164,9 +164,9 @@ skills/site-builder/
     the agent-indexed gate (Layer 1) fires at phase boundaries.
   ```
 
-- [ ] **Step 3:** Verify: BRAND.md creation order matches `doc-templates.md` File Creation Order (after ARCHITECTURE.md, before CLAUDE.md). Pre-commit hook references match `doc-refresh.md` Section 3 and `doc-refresh-script.sh`. PostToolUse echo mentions all three docs (ARCHITECTURE.md, CONTEXT.md, BRAND.md). Label says "Intra-phase reminder" not "Layer 1".
+- [x] **Step 3:** Verify: BRAND.md creation order matches `doc-templates.md` File Creation Order (after ARCHITECTURE.md, before CLAUDE.md). Pre-commit hook references match `doc-refresh.md` Section 3 and `doc-refresh-script.sh`. PostToolUse echo mentions all three docs (ARCHITECTURE.md, CONTEXT.md, BRAND.md). Label says "Intra-phase reminder" not "Layer 1".
 
-- [ ] **Step 4:** Commit: `docs(skill): update Init 2.5 with BRAND.md creation and expanded pre-commit hook; update Section 2.6 PostToolUse label`
+- [x] **Step 4:** Commit: `docs(skill): update Init 2.5 with BRAND.md creation and expanded pre-commit hook; update Section 2.6 PostToolUse label`
 
 ---
 
@@ -183,7 +183,7 @@ skills/site-builder/
 
 #### Steps
 
-- [ ] **Step 1:** Replace existing "Doc refresh:" footnotes with "Doc Gate:" checklist items for phases that already have them. Use the agent→doc mapping from `doc-refresh.md` to write the correct obligations. The format for each entry is: `**Doc Gate:** Verify <doc(s)> — <sections>. State what was checked.`
+- [x] **Step 1:** Replace existing "Doc refresh:" footnotes with "Doc Gate:" checklist items for phases that already have them. Use the agent→doc mapping from `doc-refresh.md` to write the correct obligations. The format for each entry is: `**Doc Gate:** Verify <doc(s)> — <sections>. State what was checked.`
 
   **Phase 1 DISCOVER (line ~861):**
 
@@ -268,7 +268,7 @@ skills/site-builder/
   checked before proceeding.
   ```
 
-- [ ] **Step 2:** Add new "Doc Gate:" entries for phases that previously had none. Insert each entry after the phase's `Update status.md` line, before the next phase heading.
+- [x] **Step 2:** Add new "Doc Gate:" entries for phases that previously had none. Insert each entry after the phase's `Update status.md` line, before the next phase heading.
 
   **Phase 4 DESIGN (after line ~972, before Phase 5):**
 
@@ -320,7 +320,7 @@ skills/site-builder/
   State what was checked before proceeding.
   ```
 
-- [ ] **Step 3:** Modify Update Mode (lines 816–844). Insert Doc Refresh Gate step between re-audit and deploy.
+- [x] **Step 3:** Modify Update Mode (lines 816–844). Insert Doc Refresh Gate step between re-audit and deploy.
 
   Current Update Mode steps (within the "If all phases complete" block):
   ```
@@ -349,9 +349,9 @@ skills/site-builder/
   7. Deploy through existing CI/CD
   ```
 
-- [ ] **Step 4:** Verify completeness: grep SKILL.md for "Doc refresh:" — should return zero hits. Grep for "Doc Gate:" — should return 10 hits (phases 1–6, 8–11; not phase 7). This satisfies AC-9 ("all 11 phases") as 10 of 11 — Phase 7 AUDIT is excluded by design because its 6 audit agents are read-only analyzers. Verify Update Mode has 7 steps with Doc Refresh Gate at step 6. Verify no phase references "doc-refresh.md Phase N mapping" (old phase-indexed references) — all should reference the agent-indexed mapping or omit the reference.
+- [x] **Step 4:** Verify completeness: grep SKILL.md for "Doc refresh:" — should return zero hits. Grep for "Doc Gate:" — should return 10 hits (phases 1–6, 8–11; not phase 7). This satisfies AC-9 ("all 11 phases") as 10 of 11 — Phase 7 AUDIT is excluded by design because its 6 audit agents are read-only analyzers. Verify Update Mode has 7 steps with Doc Refresh Gate at step 6. Verify no phase references "doc-refresh.md Phase N mapping" (old phase-indexed references) — all should reference the agent-indexed mapping or omit the reference.
 
-- [ ] **Step 5:** Commit: `docs(skill): replace Doc refresh footnotes with Doc Gate entries across all phases; add Update Mode Doc Refresh Gate`
+- [x] **Step 5:** Commit: `docs(skill): replace Doc refresh footnotes with Doc Gate entries across all phases; add Update Mode Doc Refresh Gate`
 
 ---
 
