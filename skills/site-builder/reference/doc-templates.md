@@ -374,6 +374,13 @@ During Init, docs are created in this order:
    or placeholders; enriched by Phase 4 DESIGN)
 4. `CLAUDE.md` — last, because it references the other docs
 
+After docs are created:
+
+5. `.site-builder/refresh-hint.sh` — targeted PostToolUse hint script
+   (from `reference/refresh-hint.sh` template). Overwritten on re-init.
+6. `.git/hooks/pre-commit` — pre-commit hook with doc patching, staging,
+   and soft-blocking gate (from `reference/doc-refresh-script.sh` template)
+
 This order ensures each file can reference files created before it.
 
 ---

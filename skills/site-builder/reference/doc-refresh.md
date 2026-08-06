@@ -220,7 +220,7 @@ within the site-builder block.
 | Tailwind config missing (no `tailwind.config.*` and no `design-system.md`) | Skip BRAND.md token patching entirely. Exit 0. |
 | Tailwind config uses JS expressions (e.g., `require()`) | Partial/empty extraction results. Patch with whatever was extracted; empty result skips the marker. Never corrupt existing content. |
 
-### Soft-blocking gate failures
+### Soft-Blocking Gate Failures
 
 | Failure | Recovery |
 |---|---|
