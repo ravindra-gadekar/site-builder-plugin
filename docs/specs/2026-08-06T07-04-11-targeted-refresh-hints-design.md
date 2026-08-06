@@ -40,6 +40,28 @@ The feature modifies two template files that the site-builder orchestrator insta
 - New Section 3a: Document the soft-blocking gate behavior and bypass
 - Error Handling: Add soft-blocking gate failure/bypass entries
 
+**Script structure for soft-blocking gate:**
+The existing `doc-refresh-script.sh` uses `set -e` + `trap 'exit 0' EXIT` to
+guarantee exit 0 on any error, and ends with `exit 0`. To make Step 3's
+`exit 1` effective, the implementation must: (1) remove the final `exit 0`,
+(2) insert `trap - EXIT` before Step 3 to clear the safety-net trap, (3)
+append the gate logic after the trap reset. This ensures Steps 1-2 are
+still protected by the trap while Step 3 can exit 1 intentionally.
+
+**Pattern set distinction (hints vs. gate):**
+The refresh-hint.sh patterns are intentionally broader than the soft-blocking
+gate patterns. Hints are advisory — they nudge on any plausibly-relevant edit
+(including `.tsx` for BRAND.md, blanket `.ts/.js` for ARCHITECTURE.md). The
+gate is enforcement — it only blocks on structurally significant changes
+(route files, config files, design tokens) to avoid false-positive fatigue
+that would train developers to always use `--no-verify`.
+
+**Update path for refresh-hint.sh:**
+`refresh-hint.sh` is overwritten on re-init (same lifecycle as the pre-commit
+hook content). When the plugin is updated via `npx skills update` and the
+user re-runs `/site-builder --init`, the orchestrator replaces
+`.site-builder/refresh-hint.sh` with the current template.
+
 **Boundaries:**
 - Layer 1 (agent-indexed checklist gate) is unchanged — judgment content still requires agent/orchestrator verification
 - Layer 2 (mechanical-facts script) is expanded, not replaced — existing auto-marker patching is preserved
@@ -58,7 +80,7 @@ Developer/Agent edits a file via Edit/Write tool
   -> Script reads JSON from stdin, extracts file_path
   -> Strip CWD prefix -> repo-relative path
   -> Pattern match:
-     *.css|*.scss|*.tsx|*/tailwind.config.*
+     *.css|*.scss|*.tsx|tailwind.config.*|*/tailwind.config.*
        -> "Update BRAND.md (colors/tokens section)"
      *.ts|*.js|*/src/pages/*|*/src/app/*|*/app/pages/*
        -> "Update ARCHITECTURE.md (directory structure, routes)"
@@ -88,20 +110,75 @@ git commit triggered
     -> Stage CONTEXT.md, CLAUDE.md if they have unstaged changes
 
   Step 3: Soft-blocking gate (new)
-    -> Scan staged code files against pattern rules:
-       *.css|*.scss|tailwind.config.* staged BUT BRAND.md not staged
-         -> warn: "BRAND.md may be stale"
-       *.ts|*.js|src/pages/*|src/app/* staged BUT ARCHITECTURE.md not staged
-         -> warn: "ARCHITECTURE.md may be stale"
-       package.json staged BUT ARCHITECTURE.md not staged
-         -> warn: "ARCHITECTURE.md build/deps may be stale"
+    -> Reset trap: trap - EXIT (so exit 1 is not intercepted)
+    -> Scan staged code files (git diff --cached --name-only) against
+       narrowed enforcement patterns:
+       *.css|*.scss|tailwind.config.* staged BUT BRAND.md has no changes
+       (neither staged nor unstaged)
+         -> warn: ">> WARNING: BRAND.md may need updating -- staged files
+                    match design-token patterns (*.css, *.scss, tailwind.config.*)"
+       src/pages/*|src/app/*|app/pages/* staged OR files added/deleted
+       (git diff --cached --diff-filter=AD) BUT ARCHITECTURE.md has no changes
+         -> warn: ">> WARNING: ARCHITECTURE.md may need updating -- staged
+                    files match route/structure patterns"
+       package.json staged BUT ARCHITECTURE.md has no changes
+         -> warn: ">> WARNING: ARCHITECTURE.md build/deps may need updating
+                    -- package.json was changed"
     -> Any warnings?
-       +-- YES -> print warnings + "Run 'git commit --no-verify' to skip"
+       +-- YES -> print all warnings (aggregate, don't stop at first)
+                  print "Refresh the listed docs, or run 'git commit
+                         --no-verify' to skip."
                   -> exit 1
        +-- NO  -> exit 0
+
+    Note: "has no changes" means not in git diff --name-only (unstaged)
+    AND not in git diff --cached --name-only (staged). A doc with ANY
+    changes (staged or unstaged) passes the gate -- unstaged changes
+    suggest the developer is aware the doc needs updating.
+    
+    Note: the gate uses NARROWER patterns than refresh-hint.sh (no blanket
+    *.ts|*.js) to avoid false-positive fatigue. See Architecture section
+    for rationale.
 ```
 
 **Key invariant:** Step 1 (patching) runs before Step 3 (gate). So if the auto-patcher already refreshed and staged BRAND.md from a Tailwind config change, the gate won't fire — it only catches gaps the mechanical patcher can't cover (judgment content like component patterns, route descriptions).
+
+### Tailwind Config Parsing Specification
+
+When `.site-builder/design-system.md` is absent, the script searches for
+Tailwind config files in this order: `tailwind.config.ts` >
+`tailwind.config.js` > `tailwind.config.mjs` > `tailwind.config.cjs`.
+First match wins.
+
+Extraction targets (awk/sed, same CRLF-safe pipeline as existing script):
+
+| Auto-marker | Config key paths (checked in order, first non-empty wins) |
+|---|---|
+| `auto:color-tokens` | `theme.extend.colors`, then `theme.colors` |
+| `auto:font-stack` | `theme.extend.fontFamily`, then `theme.fontFamily` |
+| `auto:spacing-scale` | `theme.extend.spacing`, then `theme.spacing` |
+
+The parser extracts key-value pairs from JavaScript object literals using
+awk (same approach as the existing `package.json` parser). JS expressions
+like `require()` or spread operators produce partial/empty results — the
+script patches with whatever it gets, and empty results skip the marker
+(never corrupt existing content).
+
+**Tailwind v4 note:** Tailwind CSS v4 eliminated `tailwind.config.*` in
+favor of CSS-native `@theme` directives. Projects using Tailwind v4 will
+have no config file — the fallback silently skips, and the pipeline's
+Phase 4 DESIGN creates `design-system.md` as the primary source. This is
+a known limitation, not a bug.
+
+### CSS `:root {}` Fallback — Deferred
+
+Parsing CSS `:root {}` custom properties (AC-5 in the original spec) is
+deferred to a follow-up. The Tailwind fallback alone covers the primary
+gap (pre-Phase-4 projects with Tailwind). The CSS fallback adds parsing
+complexity for an edge case (projects with custom properties but no
+Tailwind and no design-system.md). If needed later, the file search order
+would be: `src/styles/global.css`, `src/globals.css`, `app/globals.css`,
+then `find . -name '*.css' -path '*/styles/*' | head -1`.
 
 ---
 
@@ -141,7 +218,7 @@ git commit triggered
 |---|---|
 | Gate fires (code staged, doc not staged) | Print specific warnings naming which docs are stale. Print: `"Refresh the listed docs, or run 'git commit --no-verify' to skip."` Exit 1. |
 | False positive (doc was refreshed but in a different commit) | Developer uses `--no-verify` to bypass. Gate message makes this clear. |
-| Gate logic itself errors (script bug in Step 3) | Caught by existing `trap 'exit 0' EXIT` — patching (Step 1) and staging (Step 2) still succeed, only the gate is skipped. Commit proceeds. |
+| Gate logic itself errors (script bug in Step 3) | The EXIT trap is already cleared (`trap - EXIT`) before Step 3, so a bug here would cause a non-zero exit and block the commit. Developers use `--no-verify` to bypass. This is acceptable — a gate bug is rare and the bypass is documented. |
 
 ### Tailwind/CSS fallback parsing failures
 
@@ -155,7 +232,7 @@ git commit triggered
 
 - **Patching (Step 1) and staging (Step 2) always exit 0** on error — they never block commits. This is the existing guarantee, preserved.
 - **Only the soft-blocking gate (Step 3) can exit 1**, and only when it detects a real pattern mismatch. A `--no-verify` bypass is always available.
-- The `trap 'exit 0' EXIT` wraps Steps 1-2 only. Step 3 runs outside the trap so it can exit 1 intentionally.
+- Before Step 3, the script executes `trap - EXIT` to clear the safety-net trap and removes the final `exit 0`. This allows the gate's `exit 1` to propagate. Steps 1-2 remain protected by the trap during their execution.
 
 ---
 
@@ -187,6 +264,9 @@ Since this is a Markdown-only repo with no test framework, testing is structural
 | Soft-blocking gate: warns when code staged but doc not | In scratch git repo, stage a `.css` file without staging BRAND.md, run script, confirm exit 1 + warning message |
 | Soft-blocking gate: silent when doc already staged | Stage both `.css` file and BRAND.md, run script, confirm exit 0 |
 | Soft-blocking gate: doesn't fire when no code matches patterns | Stage only `README.md`, confirm exit 0 |
+| Soft-blocking gate: doc with unstaged changes passes gate | Stage a `.css` file, leave BRAND.md with unstaged edits (not staged), confirm exit 0 (gate sees changes exist) |
+| Trap reset: gate exit 1 not intercepted by EXIT trap | Run FULL script (not Step 3 in isolation) with a `.css` file staged and BRAND.md unchanged, confirm exit code is 1 (not 0) |
+| Tailwind fallback: parses theme.extend.colors | Create scratch `tailwind.config.js` with `theme: { extend: { colors: { primary: '#ff0000' } } }` + BRAND.md markers, confirm `#ff0000` appears in patched output |
 | Script exits 0 in empty directory | Run in empty scratch dir, confirm exit 0 |
 
 ### SKILL.md / doc-refresh.md verification
@@ -205,9 +285,9 @@ Since this is a Markdown-only repo with no test framework, testing is structural
 - [ ] **AC-2:** `refresh-hint.sh` outputs a targeted hint naming the specific doc and section when the changed file matches a doc-relevant pattern (CSS/SCSS/TSX -> BRAND.md, TS/JS/pages -> ARCHITECTURE.md, package.json/config -> ARCHITECTURE.md+CLAUDE.md, schema/model -> CONTEXT.md)
 - [ ] **AC-3:** `refresh-hint.sh` produces no output for files that don't match any pattern (silent, not a generic echo)
 - [ ] **AC-4:** `doc-refresh-script.sh` parses `tailwind.config.*` color/font/spacing values as a fallback source for BRAND.md auto-markers when `.site-builder/design-system.md` does not exist
-- [ ] **AC-5:** `doc-refresh-script.sh` parses CSS `:root {}` custom properties as a second fallback when neither `design-system.md` nor `tailwind.config.*` exists
+- [ ] **AC-5:** ~~CSS `:root {}` fallback~~ **Deferred** to follow-up. Tailwind fallback covers the primary gap. When neither `design-system.md` nor `tailwind.config.*` exists, BRAND.md token patching is skipped (existing behavior)
 - [ ] **AC-6:** When both `design-system.md` and `tailwind.config.*` exist, `design-system.md` takes priority — Tailwind fallback does not run
-- [ ] **AC-7:** Soft-blocking gate exits 1 with specific warning messages when doc-relevant code files are staged but the corresponding doc has no staged or unstaged changes
+- [ ] **AC-7:** Soft-blocking gate exits 1 with specific warning messages when doc-relevant code files are staged but the corresponding doc has no changes (neither staged via `git diff --cached` nor unstaged via `git diff`). A doc with ANY changes passes the gate
 - [ ] **AC-8:** Soft-blocking gate message includes `git commit --no-verify` bypass instruction
 - [ ] **AC-9:** Patching (Step 1) and auto-staging (Step 2) always exit 0 on error — the existing "never block commits on doc-refresh failure" guarantee is preserved for mechanical patching
 - [ ] **AC-10:** Only the soft-blocking gate (Step 3) can exit 1, and only for the specific pattern-mismatch condition
@@ -218,6 +298,8 @@ Since this is a Markdown-only repo with no test framework, testing is structural
 - [ ] **AC-15:** All existing auto-marker patching (directory structure, dependencies, build-dev, color-tokens, font-stack, spacing-scale) continues to work unchanged
 - [ ] **AC-16:** CRLF safety preserved — all new file reads pipe through `tr -d '\r'`
 - [ ] **AC-17:** Gitignore hook (`site-builder:gitignore` marker block) is unaffected
+- [ ] **AC-18:** `refresh-hint.sh` matches root-level `tailwind.config.*` (not just `*/tailwind.config.*`) — both patterns present in the case statement
+- [ ] **AC-19:** Soft-blocking gate evaluates ALL pattern rules and aggregates ALL warnings before exiting 1 (developer sees complete picture, not one-at-a-time)
 
 ---
 
